@@ -13,43 +13,6 @@ A production-ready React single-page application for interacting with a multi-ag
 
 ## Project Structure
 
-\`\`\`
-src/
-├── app/
-│   ├── page.tsx           # Main app component
-│   └── globals.css        # Global styles and theme
-├── components/
-│   ├── header.tsx         # App header
-│   ├── agent-list.tsx     # Agent list display
-│   ├── agent-card.tsx     # Individual agent card
-│   ├── chat-window.tsx    # Chat interface
-│   ├── request-composer.tsx # Input form
-│   ├── chat-message.tsx   # Message display
-│   ├── history-panel.tsx  # Conversation history
-│   ├── health-status.tsx  # Agent health indicator
-│   ├── settings-dialog.tsx # Settings modal
-│   └── error-boundary.tsx # Error handling
-├── context/
-│   ├── agent-context.tsx  # Agent state management
-│   ├── history-context.tsx # History state management
-│   └── settings-context.tsx # Settings state management
-├── lib/
-│   └── api-service.ts     # Backend API wrapper
-# Education & Learning Agents Hub UI
-
-A production-ready React single-page application for interacting with a multi-agent system. Built with TypeScript, Tailwind CSS, and modern React patterns.
-
-## Features
-
-- **Agent Discovery**: Browse available agents with real-time health status
-- **Interactive Chat**: Send requests and receive responses from agents
-- **History Management**: View and manage conversation history per agent
-- **Settings**: Configure LTM/STM and auto-routing preferences
-- **Error Handling**: Graceful error boundaries and offline support
-- **Responsive Design**: Mobile-first, accessible UI (WCAG AA)
-
-## Project Structure
-
 ```
 src/
 ├── app/
