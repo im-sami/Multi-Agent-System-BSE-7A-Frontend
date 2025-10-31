@@ -35,9 +35,46 @@ src/
 │   └── settings-context.tsx # Settings state management
 ├── lib/
 │   └── api-service.ts     # Backend API wrapper
+# Education & Learning Agents Hub UI
+
+A production-ready React single-page application for interacting with a multi-agent system. Built with TypeScript, Tailwind CSS, and modern React patterns.
+
+## Features
+
+- **Agent Discovery**: Browse available agents with real-time health status
+- **Interactive Chat**: Send requests and receive responses from agents
+- **History Management**: View and manage conversation history per agent
+- **Settings**: Configure LTM/STM and auto-routing preferences
+- **Error Handling**: Graceful error boundaries and offline support
+- **Responsive Design**: Mobile-first, accessible UI (WCAG AA)
+
+## Project Structure
+
+```
+src/
+├── app/
+│   ├── page.tsx           # Main app component
+│   └── globals.css        # Global styles and theme
+├── components/
+│   ├── header.tsx         # App header
+│   ├── agent-list.tsx     # Agent list display
+│   ├── agent-card.tsx     # Individual agent card
+│   ├── chat-window.tsx    # Chat interface
+│   ├── request-composer.tsx # Input form
+│   ├── chat-message.tsx   # Message display
+│   ├── history-panel.tsx  # Conversation history
+│   ├── health-status.tsx  # Agent health indicator
+│   ├── settings-dialog.tsx # Settings modal
+│   └── error-boundary.tsx # Error handling
+├── context/
+│   ├── agent-context.tsx  # Agent state management
+│   ├── history-context.tsx # History state management
+│   └── settings-context.tsx # Settings state management
+├── lib/
+│   └── api-service.ts     # Backend API wrapper
 └── types/
     └── agent.ts           # TypeScript interfaces
-\`\`\`
+```
 
 ## Backend API Contract
 
@@ -45,7 +82,7 @@ src/
 Fetch available agents.
 
 **Response:**
-\`\`\`json
+```json
 {
   "agents": [
     {
@@ -56,44 +93,44 @@ Fetch available agents.
     }
   ]
 }
-\`\`\`
+```
 
 ### POST /supervisor/request
 Submit a request to an agent.
 
 **Request:**
-\`\`\`json
+```json
 {
   "agentId": "agent-1",
   "request": "What is AI?",
   "autoRoute": false
 }
-\`\`\`
+```
 
 **Response:**
-\`\`\`json
+```json
 {
   "response": "AI is artificial intelligence...",
   "agentId": "agent-1",
   "timestamp": "2024-10-24T10:30:00Z"
 }
-\`\`\`
+```
 
 ### GET /agent/{id}/health
 Check agent health status.
 
 **Response:**
-\`\`\`json
+```json
 {
   "status": "healthy"
 }
-\`\`\`
+```
 
 ## Getting Started
 
 ### Installation
 
-\`\`\`bash
+```bash
 # Clone the repository
 git clone <repo-url>
 
@@ -102,28 +139,28 @@ npm install
 
 # Set environment variables
 echo "NEXT_PUBLIC_API_URL=http://localhost:3001" > .env.local
-\`\`\`
+```
 
 ### Development
 
-\`\`\`bash
+```bash
 npm run dev
-\`\`\`
+```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ### Build
 
-\`\`\`bash
+```bash
 npm run build
 npm start
-\`\`\`
+```
 
 ## Testing
 
-\`\`\`bash
+```bash
 npm test
-\`\`\`
+```
 
 ## Configuration
 
