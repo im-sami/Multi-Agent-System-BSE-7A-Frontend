@@ -10,14 +10,14 @@ import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
 
 export default function AgentDirectoryPage() {
-  const { agents, loading } = useAgents()
+  const { agents, loading, agentHealth } = useAgents()
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCapability, setSelectedCapability] = useState<string | null>(null)
 
   const filteredAgents = agents.filter((agent) => {
     const matchesSearch =
       agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      agent.description.toLowerCase().includes(searchQuery.toLowerCase())
+      (agent.description || "").toLowerCase().includes(searchQuery.toLowerCase())
     const matchesCapability = !selectedCapability || agent.capabilities?.includes(selectedCapability)
     return matchesSearch && matchesCapability
   })
@@ -81,7 +81,12 @@ export default function AgentDirectoryPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredAgents.map((agent) => (
                   <Link key={agent.id} href={`/agent/${agent.id}`}>
-                    <AgentCard agent={agent} isSelected={false} onSelect={() => {}} />
+                    <AgentCard
+                      agent={agent}
+                      health={agentHealth[agent.id] || "offline"}
+                      isSelected={false}
+                      onSelect={() => {}}
+                    />
                   </Link>
                 ))}
               </div>

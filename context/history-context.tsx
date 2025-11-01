@@ -3,11 +3,7 @@
 import { createContext, useContext, useState, type ReactNode, useEffect } from "react"
 import { useUser } from "./user-context"
 
-interface Message {
-  type: "user" | "agent" | "error"
-  content: any
-  timestamp: string
-}
+import { type Message } from "@/types"
 
 interface HistoryContextType {
   getHistory: (agentId: string) => Message[]
@@ -16,6 +12,8 @@ interface HistoryContextType {
 }
 
 const HistoryContext = createContext<HistoryContextType | undefined>(undefined)
+
+const EMPTY_HISTORY: Message[] = []
 
 export function HistoryProvider({ children }: { children: ReactNode }) {
   const [history, setHistory] = useState<Record<string, Message[]>>({})
@@ -50,7 +48,7 @@ export function HistoryProvider({ children }: { children: ReactNode }) {
     }
   }, [history, user])
 
-  const getHistory = (agentId: string) => history[agentId] || []
+  const getHistory = (agentId: string) => history[agentId] || EMPTY_HISTORY
 
   const addMessage = (agentId: string, message: Message) => {
     setHistory((prev) => ({

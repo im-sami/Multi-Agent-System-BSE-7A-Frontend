@@ -12,6 +12,9 @@ import AgentDetailPanel from "@/components/agent-detail-panel"
 import HistoryPanel from "@/components/history-panel"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { submitSupervisorRequest } from "@/lib/api-service"
+import { useHistory } from "@/context/history-context"
+import { type RequestPayload } from "@/types"
 
 export default function ConversationPage() {
   const params = useParams()
@@ -21,6 +24,8 @@ export default function ConversationPage() {
   const [showHistory, setShowHistory] = useState(false)
   const [showDetailPanel, setShowDetailPanel] = useState(false)
   const isMobile = useIsMobile()
+  const { addMessage } = useHistory()
+  const [loading, setLoading] = useState(false)
 
   const agent = agents.find((a) => a.id === agentId)
   const health = agentHealth[agentId]
@@ -91,11 +96,42 @@ export default function ConversationPage() {
   const displayAgentId = selectedAlternative || agentId
   const displayAgent = agents.find((a) => a.id === displayAgentId)
 
+  const handleSendRequest = async (payload: RequestPayload) => {
+    const userMessage = {
+      type: "user" as const,
+      content: payload.request,
+      timestamp: new Date().toISOString(),
+    }
+    addMessage(displayAgentId, userMessage)
+
+    setLoading(true)
+    try {
+      const response = await submitSupervisorRequest(payload)
+      const agentResponse = {
+        type: "agent" as const,
+        content: response.response || "No response content.",
+        timestamp: response.timestamp,
+        metadata: response.metadata,
+      }
+      addMessage(displayAgentId, agentResponse)
+    } catch (error) {
+      const errorMessage = {
+        type: "error" as const,
+        content: error instanceof Error ? error.message : "An unknown error occurred.",
+        timestamp: new Date().toISOString(),
+      }
+      addMessage(displayAgentId, errorMessage)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const renderChatWindow = () => (
     <ChatWindow
       agentId={displayAgentId}
       onToggleHistory={() => setShowHistory(!showHistory)}
       onToggleDetailPanel={() => setShowDetailPanel(!showDetailPanel)}
+      onSendRequest={handleSendRequest}
     />
   )
 

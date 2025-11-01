@@ -1,41 +1,17 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import type { Agent } from "@/types/agent"
-import { checkAgentHealth } from "@/lib/api-service"
+import type { Agent } from "@/types"
 import HealthStatus from "./health-status"
 import { Clock } from "lucide-react"
 
 interface AgentCardProps {
   agent: Agent
+  health: "healthy" | "degraded" | "offline"
   isSelected: boolean
   onSelect: () => void
 }
 
-export default function AgentCard({ agent, isSelected, onSelect }: AgentCardProps) {
-  const [health, setHealth] = useState<"healthy" | "degraded" | "offline">("offline")
-  const [loading, setLoading] = useState(true)
-  const [lastSeen, setLastSeen] = useState<string>("Never")
-
-  useEffect(() => {
-    const checkHealth = async () => {
-      setLoading(true)
-      try {
-        const status = await checkAgentHealth(agent.id)
-        setHealth(status)
-        setLastSeen(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))
-      } catch {
-        setHealth("offline")
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    checkHealth()
-    const interval = setInterval(checkHealth, 30000)
-    return () => clearInterval(interval)
-  }, [agent.id])
-
+export default function AgentCard({ agent, health, isSelected, onSelect }: AgentCardProps) {
   return (
     <button
       onClick={onSelect}
@@ -56,7 +32,7 @@ export default function AgentCard({ agent, isSelected, onSelect }: AgentCardProp
               {agent.description}
             </p>
           </div>
-          {!loading && <HealthStatus status={health} />}
+          <HealthStatus status={health} />
         </div>
 
         {/* Tags */}
@@ -79,14 +55,6 @@ export default function AgentCard({ agent, isSelected, onSelect }: AgentCardProp
             )}
           </div>
         )}
-
-        {/* Last seen */}
-        <div
-          className={`flex items-center gap-1 text-xs ${isSelected ? "text-primary-foreground/80" : "text-muted-foreground"}`}
-        >
-          <Clock className="w-3 h-3" />
-          <span>Last seen: {lastSeen}</span>
-        </div>
       </div>
     </button>
   )

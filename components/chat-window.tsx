@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useRef, useEffect } from "react"
 import Link from "next/link"
 import { useHistory } from "@/context/history-context"
 import { useAgents } from "@/context/agent-context"
@@ -10,12 +10,14 @@ import { History, ChevronLeft, Menu, LayoutDashboard } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { type RequestPayload } from "@/types"
 
 interface ChatWindowProps {
   agentId: string
   onToggleHistory: () => void
   onToggleSidebar?: () => void
   onToggleDetailPanel?: () => void
+  onSendRequest: (payload: RequestPayload) => Promise<void>
 }
 
 export default function ChatWindow({
@@ -23,55 +25,19 @@ export default function ChatWindow({
   onToggleHistory,
   onToggleSidebar,
   onToggleDetailPanel,
+  onSendRequest,
 }: ChatWindowProps) {
-  const { addMessage, getHistory } = useHistory()
+  const { getHistory } = useHistory()
   const { agents } = useAgents()
-  const [messages, setMessages] = useState<any[]>([])
-  const [loading, setLoading] = useState(false)
+  const messages = getHistory(agentId)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const isMobile = useIsMobile()
 
   const agent = agents.find((a) => a.id === agentId)
-  const history = getHistory(agentId)
-
-  useEffect(() => {
-    setMessages(history)
-  }, [agentId, history])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
-
-  const handleSendRequest = async (request: string) => {
-    const userMessage = {
-      type: "user" as const,
-      content: request,
-      timestamp: new Date().toISOString(),
-    }
-    addMessage(agentId, userMessage)
-
-    setLoading(true)
-    try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500))
-
-      const agentResponse = {
-        type: "agent" as const,
-        content: `This is a summary of the response to: "${request}"`,
-        timestamp: new Date().toISOString(),
-      }
-      addMessage(agentId, agentResponse)
-    } catch (error) {
-      const errorMessage = {
-        type: "error" as const,
-        content: "An error occurred while processing your request.",
-        timestamp: new Date().toISOString(),
-      }
-      addMessage(agentId, errorMessage)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   return (
     <div className="flex-1 flex flex-col h-screen">
@@ -161,7 +127,7 @@ export default function ChatWindow({
 
       {/* Input */}
       <div className="border-t border-border p-4 bg-muted/30">
-        <RequestComposer agentId={agentId} onSend={handleSendRequest} disabled={loading} />
+        <RequestComposer agentId={agentId} onSend={onSendRequest} />
       </div>
     </div>
   )

@@ -8,15 +8,29 @@ import { useHistory } from "@/context/history-context"
 import AgentDetailPanel from "@/components/agent-detail-panel"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import { LoadingSpinner } from "@/components/loading-spinner"
 
 export default function AgentDetailPage() {
   const params = useParams()
   const agentId = params.id as string
-  const { agents } = useAgents()
+  const { agents, loading } = useAgents()
   const { getHistory } = useHistory()
 
   const agent = agents.find((a) => a.id === agentId)
   const history = getHistory(agentId)
+
+  if (loading) {
+    return (
+      <div className="flex h-screen bg-background text-foreground">
+        <div className="flex-1 flex flex-col">
+          <Header />
+          <div className="flex-1 flex items-center justify-center">
+            <LoadingSpinner />
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   if (!agent) {
     return (
@@ -95,7 +109,7 @@ export default function AgentDetailPage() {
 
               {/* Sidebar */}
               <div>
-                <AgentDetailPanel agentId={agentId} onClose={() => {}} />
+                <AgentDetailPanel agent={agent} onClose={() => {}} />
               </div>
             </div>
           </div>

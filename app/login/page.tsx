@@ -6,11 +6,15 @@ import { useUser } from "@/context/user-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Label } from "@/components/ui/label"
+import { useToast } from "@/hooks/use-toast"
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("")
-  const { login, user } = useUser()
+  const [email, setEmail] = useState("test@example.com")
+  const [password, setPassword] = useState("password")
+  const { login, user, loading, error } = useUser()
   const router = useRouter()
+  const { toast } = useToast()
 
   useEffect(() => {
     if (user) {
@@ -18,10 +22,24 @@ export default function LoginPage() {
     }
   }, [user, router])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (error) {
+      toast({
+        variant: "destructive",
+        title: "Login Failed",
+        description: error,
+      })
+    }
+  }, [error, toast])
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (email.trim()) {
-      login(email)
+    if (email.trim() && password.trim()) {
+      try {
+        await login({ email, password })
+      } catch (err) {
+        // Error is already handled by the context's useEffect
+      }
     }
   }
 
@@ -30,20 +48,35 @@ export default function LoginPage() {
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle className="text-2xl">Login</CardTitle>
-          <CardDescription>Enter your email to sign in or create an account.</CardDescription>
+          <CardDescription>Enter your credentials to access the system.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <Input
-              type="email"
-              placeholder="name@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="focus-ring"
-            />
-            <Button type="submit" className="w-full focus-ring">
-              Sign In
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="name@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="focus-ring"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="focus-ring"
+              />
+            </div>
+            <Button type="submit" className="w-full focus-ring" disabled={loading}>
+              {loading ? "Signing In..." : "Sign In"}
             </Button>
           </form>
         </CardContent>

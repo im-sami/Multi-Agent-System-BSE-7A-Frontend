@@ -9,7 +9,7 @@ interface AgentListProps {
 }
 
 export default function AgentList({ selectedAgentId, onSelectAgent }: AgentListProps) {
-  const { agents, loading, error } = useAgents()
+  const { agents, loading, error, agentHealth } = useAgents()
 
   if (loading) {
     return (
@@ -33,6 +33,7 @@ export default function AgentList({ selectedAgentId, onSelectAgent }: AgentListP
         <AgentCard
           key={agent.id}
           agent={agent}
+          health={agentHealth[agent.id] || "offline"}
           isSelected={selectedAgentId === agent.id}
           onSelect={() => onSelectAgent(agent.id)}
         />

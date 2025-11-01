@@ -1,15 +1,16 @@
 "use client"
 
 import type React from "react"
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Send } from "lucide-react"
 import { useHistory } from "@/context/history-context"
-import { submitRequest } from "@/lib/api-service"
+import { submitSupervisorRequest } from "@/lib/api-service"
+import { type RequestPayload } from "@/types"
 
 interface RequestComposerProps {
   agentId: string
-  onSend: (request: string) => Promise<void>
+  onSend: (payload: RequestPayload) => Promise<void>
   disabled?: boolean
 }
 
@@ -17,20 +18,11 @@ export default function RequestComposer({ agentId, onSend, disabled }: RequestCo
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
   const [priority, setPriority] = useState(5)
+  const [autoRoute, setAutoRoute] = useState(false)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const { addMessage } = useHistory()
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && inputRef.current === document.activeElement) {
-        handleSubmit(e as any)
-      }
-    }
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [input, loading, disabled])
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
     if (!input.trim() || loading || disabled) return
 
@@ -38,8 +30,16 @@ export default function RequestComposer({ agentId, onSend, disabled }: RequestCo
     setInput("")
     setLoading(true)
 
+    const payload: RequestPayload = {
+      agentId: autoRoute ? "supervisor" : agentId,
+      request,
+      priority,
+      autoRoute,
+      modelOverride: null,
+    }
+
     try {
-      await onSend(request)
+      await onSend(payload)
     } catch (error) {
       addMessage(agentId, {
         type: "error",
@@ -49,27 +49,52 @@ export default function RequestComposer({ agentId, onSend, disabled }: RequestCo
     } finally {
       setLoading(false)
     }
-  }
+  }, [input, loading, disabled, priority, autoRoute, agentId, onSend, addMessage])
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && inputRef.current === document.activeElement) {
+        handleSubmit(e as any)
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [handleSubmit])
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
-      {/* Priority Slider */}
-      <div className="flex items-center gap-3">
-        <label htmlFor="priority" className="text-xs font-medium text-muted-foreground min-w-fit">
-          Priority:
-        </label>
-        <input
-          id="priority"
-          type="range"
-          min="1"
-          max="10"
-          value={priority}
-          onChange={(e) => setPriority(Number(e.target.value))}
-          disabled={loading || disabled}
-          className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer focus-ring"
-          aria-label="Request priority"
-        />
-        <span className="text-xs font-semibold text-primary min-w-fit">{priority}</span>
+      {/* Controls */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3 flex-1">
+          <label htmlFor="priority" className="text-xs font-medium text-muted-foreground min-w-fit">
+            Priority:
+          </label>
+          <input
+            id="priority"
+            type="range"
+            min="1"
+            max="10"
+            value={priority}
+            onChange={(e) => setPriority(Number(e.target.value))}
+            disabled={loading || disabled}
+            className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer focus-ring"
+            aria-label="Request priority"
+          />
+          <span className="text-xs font-semibold text-primary min-w-fit">{priority}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="auto-route"
+            checked={autoRoute}
+            onChange={(e) => setAutoRoute(e.target.checked)}
+            disabled={loading || disabled}
+            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+          />
+          <label htmlFor="auto-route" className="text-xs font-medium text-muted-foreground">
+            Auto-Route
+          </label>
+        </div>
       </div>
 
       {/* Input Area */}

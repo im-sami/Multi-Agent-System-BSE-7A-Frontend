@@ -1,80 +1,81 @@
 "use client"
 
-import { createContext, useContext, useState, type ReactNode, useEffect } from "react"
-
-interface User {
-  id: string
-  name: string
-  email: string
-  avatar?: string
-}
+import {
+  createContext,
+  useContext,
+  useState,
+  type ReactNode,
+  useEffect,
+  useCallback,
+} from "react"
+import { type User } from "@/types"
+import { login as apiLogin, getCurrentUser } from "@/lib/api-service"
+import { useRouter } from "next/navigation"
 
 interface UserContextType {
   user: User | null
-  login: (email: string) => void
+  login: (credentials: Record<"email" | "password", string>) => Promise<void>
   logout: () => void
   loading: boolean
+  error: string | null
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined)
 
-// Mock users for simulation
-const MOCK_USERS: User[] = [
-  { id: "user1", name: "Alice", email: "alice@example.com", avatar: "/avatars/01.png" },
-  { id: "user2", name: "Bob", email: "bob@example.com", avatar: "/avatars/02.png" },
-  { id: "user3", name: "Charlie", email: "charlie@example.com", avatar: "/avatars/03.png" },
-]
-
 export function UserProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
 
-  useEffect(() => {
-    // Simulate checking for a logged-in user in localStorage
-    const storedUser = localStorage.getItem("current-user")
-    if (storedUser) {
+  const checkUser = useCallback(async () => {
+    const token = localStorage.getItem("jwt")
+    if (token) {
       try {
-        setUser(JSON.parse(storedUser))
-      } catch {
-        console.error("Failed to load user from localStorage")
+        const currentUser = await getCurrentUser()
+        setUser(currentUser)
+      } catch (err) {
+        console.error("Failed to fetch user, token might be invalid.", err)
+        localStorage.removeItem("jwt")
+        setUser(null)
       }
     }
     setLoading(false)
   }, [])
 
-  const login = (email: string) => {
-    const foundUser = MOCK_USERS.find((u) => u.email.toLowerCase() === email.toLowerCase())
-    if (foundUser) {
-      setUser(foundUser)
-      localStorage.setItem("current-user", JSON.stringify(foundUser))
-    } else {
-      // For simplicity, create a new user if not found
-      const newUser: User = {
-        id: `user${MOCK_USERS.length + 1}`,
-        name: email.split("@")[0],
-        email: email,
-        avatar: `/avatars/04.png`, // Default avatar for new users
-      }
-      MOCK_USERS.push(newUser)
-      setUser(newUser)
-      localStorage.setItem("current-user", JSON.stringify(newUser))
+  useEffect(() => {
+    checkUser()
+  }, [checkUser])
+
+  const login = async (credentials: Record<"email" | "password", string>) => {
+    try {
+      setLoading(true)
+      setError(null)
+      const { token, user: loggedInUser } = await apiLogin(credentials)
+      localStorage.setItem("jwt", token)
+      setUser(loggedInUser)
+      router.push("/dashboard")
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : "An unknown error occurred"
+      console.error("Login failed:", errorMsg)
+      setError(errorMsg)
+      throw err
+    } finally {
+      setLoading(false)
     }
   }
 
   const logout = () => {
     setUser(null)
-    localStorage.removeItem("current-user")
-    // Also clear other user-specific data
-    // Note: This is a simple approach. A more robust solution would iterate
-    // through all keys and remove the ones associated with the user.
-    Object.keys(localStorage).forEach((key) => {
-      if (key.startsWith("agent-history-") || key.startsWith("agent-settings-")) {
-        localStorage.removeItem(key)
-      }
-    })
+    localStorage.removeItem("jwt")
+    router.push("/login")
   }
 
-  return <UserContext.Provider value={{ user, login, logout, loading }}>{children}</UserContext.Provider>
+  return (
+    <UserContext.Provider value={{ user, login, logout, loading, error }}>
+      {children}
+    </UserContext.Provider>
+  )
 }
 
 export function useUser() {
