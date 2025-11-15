@@ -38,7 +38,7 @@ export function AgentProvider({ children }: { children: ReactNode }) {
         // Initial health check
         const healthMap: Record<string, "healthy" | "degraded" | "offline"> = {}
         for (const agent of data) {
-          healthMap[agent.id] = await checkAgentHealth(agent.id)
+          healthMap[agent.id] = await checkAgentHealth(agent)
         }
         setAgentHealth(healthMap)
       } catch (err) {
@@ -60,23 +60,15 @@ export function AgentProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!user || agents.length === 0) return // Don't poll if no user or no agents
 
-    const interval = setInterval(() => {
-      setAgentHealth((prevHealth) => {
-        const newHealth = { ...prevHealth }
-        let needsUpdate = false
-        agents.forEach(async (agent) => {
-          const status = await checkAgentHealth(agent.id)
-          if (newHealth[agent.id] !== status) {
-            newHealth[agent.id] = status
-            needsUpdate = true
-          }
-        })
-        // This approach is optimistic and might not trigger a re-render
-        // if the async operations complete after the return.
-        // A more robust solution might involve a different state structure.
-        return newHealth
-      })
-    }, 30000)
+    const pollHealth = async () => {
+      const healthMap: Record<string, "healthy" | "degraded" | "offline"> = {}
+      for (const agent of agents) {
+        healthMap[agent.id] = await checkAgentHealth(agent)
+      }
+      setAgentHealth(healthMap)
+    }
+
+    const interval = setInterval(pollHealth, 30000)
 
     return () => clearInterval(interval)
   }, [agents, user])
@@ -85,12 +77,15 @@ export function AgentProvider({ children }: { children: ReactNode }) {
     if (!user) return // Can't refresh health without a user
 
     if (agentId) {
-      const status = await checkAgentHealth(agentId)
-      setAgentHealth((prev) => ({ ...prev, [agentId]: status }))
+      const agentToRefresh = agents.find((a: Agent) => a.id === agentId)
+      if (agentToRefresh) {
+        const status = await checkAgentHealth(agentToRefresh)
+        setAgentHealth((prev: Record<string, "healthy" | "degraded" | "offline">) => ({ ...prev, [agentId]: status }))
+      }
     } else {
       const healthMap: Record<string, "healthy" | "degraded" | "offline"> = {}
       for (const agent of agents) {
-        healthMap[agent.id] = await checkAgentHealth(agent.id)
+        healthMap[agent.id] = await checkAgentHealth(agent)
       }
       setAgentHealth(healthMap)
     }

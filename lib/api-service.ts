@@ -84,10 +84,13 @@ export async function submitSupervisorRequest(
 }
 
 export async function checkAgentHealth(
-  agentId: string,
+  agent: Agent,
 ): Promise<"healthy" | "degraded" | "offline"> {
+  // Construct health check URL from agent's base URL
+  const healthUrl = `${API_BASE_URL}/api/agent/${agent.id}/health`
+
   try {
-    const response = await fetch(`${API_BASE_URL}/api/agent/${agentId}/health`, {
+    const response = await fetch(healthUrl, {
       method: "GET",
       headers: getAuthHeaders(),
     })
@@ -96,22 +99,10 @@ export async function checkAgentHealth(
       return "offline"
     }
 
-    // The backend might return a JSON object `{ "status": "healthy" }`
-    // or a plain text string `"healthy"`. We need to handle both.
-    const responseText = await response.text()
-    try {
-      const data = JSON.parse(responseText)
-      return data.status || "offline"
-    } catch (e) {
-      // If JSON parsing fails, assume it's a plain text response
-      const status = responseText.trim()
-      if (status === "healthy" || status === "degraded") {
-        return status
-      }
-      return "offline"
-    }
+    const data = await response.json()
+    return data.status || "offline"
   } catch (error) {
-    console.error(`Health check failed for agent ${agentId}:`, error)
+    console.error(`Health check failed for agent ${agent.id}:`, error)
     return "offline"
   }
 }

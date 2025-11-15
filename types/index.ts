@@ -12,6 +12,7 @@ export interface Agent {
   name: string;
   description?: string;
   capabilities: string[];
+  status?: string;
 }
 
 export type MessageType = 'user' | 'agent' | 'error';
