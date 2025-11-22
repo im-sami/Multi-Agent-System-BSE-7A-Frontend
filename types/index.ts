@@ -24,7 +24,7 @@ export interface Message {
 }
 
 export interface RequestPayload {
-  agentId: string;
+  agentId?: string;
   request: string;
   priority: number;
   modelOverride?: string | null;
@@ -46,6 +46,9 @@ export interface ErrorInfo {
 export interface RequestResponse {
   response?: string;
   agentId?: string;
+  status?: string; // e.g. "clarification_needed"
+  clarifying_questions?: string[];
+  intent_info?: any;
   timestamp: string; // ISO
   metadata?: RequestResponseMetadata;
   error?: ErrorInfo;

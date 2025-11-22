@@ -18,7 +18,7 @@ export default function RequestComposer({ agentId, onSend, disabled }: RequestCo
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
   const [priority, setPriority] = useState(5)
-  const [autoRoute, setAutoRoute] = useState(false)
+  const [autoRoute, setAutoRoute] = useState(true)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const { addMessage } = useHistory()
 
@@ -31,7 +31,10 @@ export default function RequestComposer({ agentId, onSend, disabled }: RequestCo
     setLoading(true)
 
     const payload: RequestPayload = {
-      agentId: autoRoute ? "supervisor" : agentId,
+      // When autoRoute is true we avoid providing an explicit agentId by
+      // using an empty string. The backend treats a falsy/empty agentId
+      // as 'no explicit agent' and will perform intent identification.
+      agentId: autoRoute ? "" : agentId,
       request,
       priority,
       autoRoute,
@@ -39,6 +42,15 @@ export default function RequestComposer({ agentId, onSend, disabled }: RequestCo
     }
 
     try {
+      if (typeof onSend !== "function") {
+        console.error("RequestComposer: onSend is not a function", onSend, { payload, agentId })
+        addMessage(agentId, {
+          type: "error",
+          content: `Internal error: send handler is not callable`,
+          timestamp: new Date().toISOString(),
+        })
+        return
+      }
       await onSend(payload)
     } catch (error) {
       addMessage(agentId, {

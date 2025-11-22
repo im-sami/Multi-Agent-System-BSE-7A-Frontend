@@ -1,46 +1,38 @@
 # Dockerfile for Next.js frontend
 
-# 1. Base image for installing dependencies
 FROM node:20-alpine AS deps
-# Install pnpm
-RUN npm install -g pnpm
-
 WORKDIR /app
-# Copy package.json and pnpm-lock.yaml to install dependencies
-COPY package.json pnpm-lock.yaml ./
-# Install dependencies using pnpm
-RUN pnpm install
 
-# 2. Base image for building the application
+# Use corepack to provide pnpm consistently without global npm installs
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# Copy only dependency manifests to leverage Docker cache for deps
+COPY package.json pnpm-lock.yaml ./
+# Try a frozen install for reproducibility; if the lockfile is out of date
+# fall back to a regular install so builds succeed. In CI you may prefer
+# to update `pnpm-lock.yaml` and keep `--frozen-lockfile`.
+RUN pnpm install --frozen-lockfile || pnpm install --no-frozen-lockfile
+
 FROM node:20-alpine AS builder
 WORKDIR /app
-# Copy dependencies from the 'deps' stage
 COPY --from=deps /app/node_modules ./node_modules
-# Copy the rest of the application source code
 COPY . .
-# Install pnpm globally to run the build command
-RUN npm install -g pnpm
-# Build the Next.js application
+# Ensure pnpm is available in this stage (enable corepack and prepare pnpm)
+RUN corepack enable && corepack prepare pnpm@latest --activate
 RUN pnpm build
 
-# 3. Final image for running the application
 FROM node:20-alpine AS runner
 WORKDIR /app
-
 ENV NODE_ENV=production
 
-# Install pnpm globally to run the start command
-RUN npm install -g pnpm
-
-# Copy necessary files from the builder stage
+# Ensure pnpm is available in the final image
+RUN corepack enable && corepack prepare pnpm@latest --activate
+# Copy build artifacts only
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/next.config.mjs ./
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
 
-# Expose the port the app runs on
 EXPOSE 3000
-
-# The command to start the app
 CMD ["pnpm", "start"]

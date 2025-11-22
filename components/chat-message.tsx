@@ -42,7 +42,11 @@ export default function ChatMessage({ message }: ChatMessageProps) {
         {message.metadata && (
           <div className="mt-2 pt-2 border-t border-white/20 text-xs opacity-80">
             <p>Execution Time: {message.metadata.executionTime}ms</p>
-            <p>Trace: {message.metadata.agentTrace.join(" -> ")}</p>
+            {Array.isArray(message.metadata.agentTrace) ? (
+              <p>Trace: {message.metadata.agentTrace.join(' -> ')}</p>
+            ) : (
+              <p>Trace: N/A</p>
+            )}
           </div>
         )}
         <p className="text-xs opacity-70 mt-1 text-right">
