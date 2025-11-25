@@ -1,0 +1,49 @@
+services:
+  # One-off builder service: installs deps and builds the Next app into the named volumes
+  builder:
+    image: node:20-alpine
+    volumes:
+      - ./:/app
+      - mas-node-modules:/app/node_modules
+      - mas-next:/app/.next
+    working_dir: /app
+    command: >
+      sh -c "npm install -g pnpm && pnpm install --no-frozen-lockfile && pnpm build"
+    restart: "no"
+
+  # Production web service - built from your Dockerfile
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./:/app
+      - mas-node-modules:/app/node_modules
+      - mas-next:/app/.next
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      - builder
+    tty: true
+
+  # Development service with hot-reload (changes appear immediately)
+  dev:
+    image: node:20-alpine
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./:/app
+      - mas-node-modules:/app/node_modules
+    working_dir: /app
+    command: >
+      sh -c "npm install -g pnpm && pnpm install --no-frozen-lockfile && pnpm dev"
+    environment:
+      - NODE_ENV=development
+    tty: true
+    stdin_open: true
+
+volumes:
+  mas-node-modules:
+  mas-next:
