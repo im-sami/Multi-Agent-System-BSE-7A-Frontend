@@ -1,7 +1,7 @@
 "use client"
 
 import { useStudySessions } from "@/context/study-session-context"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -10,13 +10,48 @@ import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Plus, Calendar, Clock, Search, Edit, Trash2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { 
+  listStudySessions, 
+  createStudySession, 
+  updateStudySession as updateSessionAPI, 
+  deleteStudySession,
+  getStudySession,
+  type StudySession,
+  type PaginatedSessions 
+} from "@/lib/proctor-service"
+import { useToast } from "@/hooks/use-toast"
 
 export default function SessionsPage() {
-  const { sessions, addSession, updateSession, deleteSession } = useStudySessions()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [editingSession, setEditingSession] = useState<string | null>(null)
+  const [editingSession, setEditingSession] = useState<number | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [filterCourse, setFilterCourse] = useState<string>("all")
+  const [sessions, setSessions] = useState<StudySession[]>([])
+  const [loading, setLoading] = useState(false)
+  const { toast } = useToast()
+
+  // Fetch sessions from API
+  const fetchSessions = async () => {
+    try {
+      setLoading(true)
+      const response = await listStudySessions({ page: 1, page_size: 100 })
+      setSessions(response.items)
+    } catch (error) {
+      console.error("Failed to fetch sessions:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load study sessions",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Load sessions on mount
+  useEffect(() => {
+    fetchSessions()
+  }, [])
 
   // Form state
   const [formData, setFormData] = useState({
@@ -28,16 +63,49 @@ export default function SessionsPage() {
     notes: "",
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (editingSession) {
-      updateSession(editingSession, formData)
+    try {
+      setLoading(true)
+      const sessionData: StudySession = {
+        course_name: formData.courseName,
+        duration_minutes: formData.duration,
+        session_date: `${formData.date}T${formData.startTime}:00Z`,
+        notes: formData.notes
+      }
+
+      if (editingSession) {
+        // Update existing session
+        await updateSessionAPI(editingSession, sessionData)
+        toast({
+          title: "Success",
+          description: "Study session updated successfully"
+        })
+      } else {
+        // Create new session
+        await createStudySession(sessionData)
+        toast({
+          title: "Success",
+          description: "Study session created successfully"
+        })
+      }
+      
+      // Refresh sessions list
+      await fetchSessions()
+      
+      setIsDialogOpen(false)
       setEditingSession(null)
-    } else {
-      addSession(formData)
+      resetForm()
+    } catch (error) {
+      console.error("Failed to save session:", error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to save study session",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
     }
-    setIsDialogOpen(false)
-    resetForm()
   }
 
   const resetForm = () => {
@@ -51,43 +119,81 @@ export default function SessionsPage() {
     })
   }
 
-  const handleEdit = (sessionId: string) => {
-    const session = sessions.find((s) => s.id === sessionId)
-    if (session) {
+  const handleEdit = async (sessionId: number) => {
+    try {
+      // Fetch session details from API
+      const session = await getStudySession(sessionId)
+      
+      // Parse session date to extract date and time
+      const sessionDate = new Date(session.session_date || "")
+      const date = sessionDate.toISOString().split("T")[0]
+      const startTime = sessionDate.toTimeString().slice(0, 5)
+      
       setFormData({
-        date: session.date,
-        startTime: session.startTime,
-        duration: session.duration,
-        courseId: session.courseId,
-        courseName: session.courseName,
+        date: date,
+        startTime: startTime,
+        duration: session.duration_minutes,
+        courseId: session.course_name.toLowerCase().replace(/\s+/g, "-"),
+        courseName: session.course_name,
         notes: session.notes || "",
       })
       setEditingSession(sessionId)
       setIsDialogOpen(true)
+    } catch (error) {
+      console.error("Failed to load session:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load session details",
+        variant: "destructive"
+      })
     }
   }
 
-  const handleDelete = (sessionId: string) => {
-    if (confirm("Are you sure you want to delete this session?")) {
-      deleteSession(sessionId)
+  const handleDelete = async (sessionId: number) => {
+    if (!confirm("Are you sure you want to delete this session?")) {
+      return
+    }
+    
+    try {
+      setLoading(true)
+      await deleteStudySession(sessionId)
+      toast({
+        title: "Success",
+        description: "Study session deleted successfully"
+      })
+      // Refresh sessions list
+      await fetchSessions()
+    } catch (error) {
+      console.error("Failed to delete session:", error)
+      toast({
+        title: "Error",
+        description: "Failed to delete study session",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
     }
   }
 
   // Filter sessions
   const filteredSessions = sessions
     .filter((s) => {
-      if (searchQuery && !s.courseName.toLowerCase().includes(searchQuery.toLowerCase())) {
+      if (searchQuery && !s.course_name.toLowerCase().includes(searchQuery.toLowerCase())) {
         return false
       }
-      if (filterCourse !== "all" && s.courseId !== filterCourse) {
+      if (filterCourse !== "all" && s.course_name.toLowerCase().replace(/\s+/g, "-") !== filterCourse) {
         return false
       }
       return true
     })
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .sort((a, b) => {
+      const dateA = new Date(a.session_date || "").getTime()
+      const dateB = new Date(b.session_date || "").getTime()
+      return dateB - dateA
+    })
 
   // Get unique courses
-  const courses = Array.from(new Set(sessions.map((s) => s.courseName)))
+  const courses = Array.from(new Set(sessions.map((s) => s.course_name)))
 
   return (
     <div className="p-6 space-y-6">
@@ -169,10 +275,17 @@ export default function SessionsPage() {
                 />
               </div>
               <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setIsDialogOpen(false)}
+                  disabled={loading}
+                >
                   Cancel
                 </Button>
-                <Button type="submit">{editingSession ? "Update" : "Create"} Session</Button>
+                <Button type="submit" disabled={loading}>
+                  {loading ? "Saving..." : editingSession ? "Update" : "Create"} Session
+                </Button>
               </div>
             </form>
           </DialogContent>
@@ -219,44 +332,63 @@ export default function SessionsPage() {
             </CardContent>
           </Card>
         ) : (
-          filteredSessions.map((session) => (
-            <Card key={session.id}>
-              <CardContent className="pt-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <h3 className="font-semibold text-lg">{session.courseName}</h3>
-                      <Badge variant="secondary">{Math.round(session.duration / 60)}h {session.duration % 60}m</Badge>
+          filteredSessions.map((session) => {
+            const sessionDate = new Date(session.session_date || "")
+            const hours = Math.floor(session.duration_minutes / 60)
+            const minutes = session.duration_minutes % 60
+            const timeStr = sessionDate.toTimeString().slice(0, 5)
+            
+            return (
+              <Card key={session.id}>
+                <CardContent className="pt-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="font-semibold text-lg">{session.course_name}</h3>
+                        <Badge variant="secondary">
+                          {hours > 0 && `${hours}h `}{minutes}m
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground mb-2">
+                        <span className="flex items-center gap-1">
+                          <Calendar className="h-4 w-4" />
+                          {sessionDate.toLocaleDateString("en-US", {
+                            weekday: "short",
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-4 w-4" />
+                          {timeStr}
+                        </span>
+                      </div>
+                      {session.notes && <p className="text-sm text-muted-foreground mt-2">{session.notes}</p>}
                     </div>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground mb-2">
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-4 w-4" />
-                        {new Date(session.date).toLocaleDateString("en-US", {
-                          weekday: "short",
-                          year: "numeric",
-                          month: "short",
-                          day: "numeric",
-                        })}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-4 w-4" />
-                        {session.startTime}
-                      </span>
+                    <div className="flex gap-2">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => handleEdit(session.id!)}
+                        disabled={loading}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => handleDelete(session.id!)}
+                        disabled={loading}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
                     </div>
-                    {session.notes && <p className="text-sm text-muted-foreground mt-2">{session.notes}</p>}
                   </div>
-                  <div className="flex gap-2">
-                    <Button variant="ghost" size="icon" onClick={() => handleEdit(session.id)}>
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleDelete(session.id)}>
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))
+                </CardContent>
+              </Card>
+            )
+          })
         )}
       </div>
     </div>
