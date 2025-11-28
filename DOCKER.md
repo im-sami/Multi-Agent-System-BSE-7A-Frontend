@@ -2,7 +2,7 @@
 
 This file contains concise, copy-pasteable commands to run the app with Docker so your local edits are visible while keeping `node_modules` and the production build (`.next`) inside Docker volumes.
 
-Run these from the project root in Windows `cmd.exe`.
+**Note**: The main `docker-compose.yml` is located at the project root. Run these commands from there.
 
 Prerequisites
 - Docker installed and running
@@ -14,8 +14,8 @@ Prerequisites
 Use this when you want **live hot-reload** — file changes appear immediately without rebuilding.
 
 ```cmd
-cd /d "D:\University\Semester 7\SPM\SPM_Project\Multi-Agent-System-BSE-7A-Frontend"
-docker compose up dev
+cd /d "D:\University\Semester 7\SPM\SPM_Project"
+docker compose up frontend
 ```
 
 - Your code changes are picked up **immediately** (Next.js dev server watches files).
@@ -27,26 +27,20 @@ docker compose up dev
 
 ## Production Mode (using docker compose)
 
+Run these commands from the project root where `docker-compose.yml` is located.
+
 1) **First time or after adding dependencies:** Populate named volumes (installs deps and builds into volumes)
 
 ```cmd
-cd /d "D:\University\Semester 7\SPM\SPM_Project\Multi-Agent-System-BSE-7A-Frontend"
-docker compose run --rm builder
+cd /d "D:\University\Semester 7\SPM\SPM_Project"
+docker compose up frontend --build
 ```
 
-2) **Start the production service**
-
-```cmd
-docker compose up web
-```
-
-3) **Stop the service**
+2) **Stop the service**
 
 ```cmd
 docker compose down
 ```
-
-2) Using `docker run` (manual, same behaviour)
 
   # Build the image (optional if you use compose which builds the `web` service)
   cd /d "D:\University\Semester 7\SPM\SPM_Project\Multi-Agent-System-BSE-7A-Frontend"

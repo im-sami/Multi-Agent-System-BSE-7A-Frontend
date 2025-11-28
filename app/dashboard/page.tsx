@@ -27,23 +27,28 @@ export default function DashboardPage() {
   const handleClarificationSubmit = async (answer: string) => {
     if (!pendingPayload) return
     setShowClarification(false)
+    setClarifyingQuestions([]) // Clear old questions immediately
     setLoadingQuick(true)
     try {
       // send the clarified answer as a follow-up request; backend will use conversation history
       const followUpPayload = { ...pendingPayload, request: answer, autoRoute: true }
       const response = await submitSupervisorRequest(followUpPayload)
 
-      // If still needs clarification, reopen modal
-      if (response && response.status === "clarification_needed") {
-        setClarifyingQuestions(response.clarifying_questions || [])
+      // If still needs clarification, reopen modal with NEW questions only
+      if (response && response.status === "clarification_needed" && 
+          response.clarifying_questions && response.clarifying_questions.length > 0) {
+        setClarifyingQuestions(response.clarifying_questions)
         setPendingPayload(followUpPayload)
         setShowClarification(true)
-        return
+        setLoadingQuick(false)
+        return // Don't clear pendingPayload, keep clarification loop going
       }
 
       const chosenAgent = response?.metadata?.identified_agent || response?.agentId || selectedAgentId || agents[0]?.id
       if (!chosenAgent) {
         addMessage("system", { type: "error", content: "No agent chosen by supervisor.", timestamp: new Date().toISOString() })
+        setLoadingQuick(false)
+        setPendingPayload(null)
         return
       }
 
@@ -51,12 +56,14 @@ export default function DashboardPage() {
       addMessage(chosenAgent, { type: "user", content: answer, timestamp: new Date().toISOString() })
       addMessage(chosenAgent, { type: "agent", content: response.response || "No response content.", timestamp: response.timestamp || new Date().toISOString(), metadata: response.metadata })
 
+      setLoadingQuick(false)
+      setPendingPayload(null)
       try { router.push(`/conversation/${chosenAgent}`) } catch (e) { /* noop */ }
     } catch (err) {
       addMessage("system", { type: "error", content: err instanceof Error ? err.message : "Unknown error", timestamp: new Date().toISOString() })
-    } finally {
       setLoadingQuick(false)
       setPendingPayload(null)
+      setClarifyingQuestions([]) // Clear questions on error
     }
   }
 
@@ -64,15 +71,19 @@ export default function DashboardPage() {
     // If autoRoute is enabled, let the supervisor decide the agent.
     if (payload?.autoRoute) {
       setLoadingQuick(true)
+      setClarifyingQuestions([]) // Clear any stale questions
+      setShowClarification(false) // Close modal if open
       try {
         // Send payload as-is (RequestComposer will set agentId to empty string when autoRoute)
         const response = await submitSupervisorRequest(payload)
 
-        // If supervisor requests clarification, open clarification modal
-        if (response && response.status === "clarification_needed") {
-          setClarifyingQuestions(response.clarifying_questions || [])
+        // If supervisor requests clarification, open clarification modal only with valid questions
+        if (response && response.status === "clarification_needed" &&
+            response.clarifying_questions && response.clarifying_questions.length > 0) {
+          setClarifyingQuestions(response.clarifying_questions)
           setPendingPayload(payload)
           setShowClarification(true)
+          setLoadingQuick(false)
           return
         }
 
@@ -116,6 +127,10 @@ export default function DashboardPage() {
           timestamp: new Date().toISOString(),
         }
         addMessage("system", errorMessage)
+        // Clear clarification state on error
+        setShowClarification(false)
+        setClarifyingQuestions([])
+        setPendingPayload(null)
       } finally {
         setLoadingQuick(false)
       }

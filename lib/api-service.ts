@@ -7,6 +7,39 @@ import {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"
 
+// Retry helper for API calls
+async function fetchWithRetry(
+  url: string, 
+  options: RequestInit, 
+  retries = 3, 
+  delay = 500
+): Promise<Response> {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 10000) // 10s timeout
+      
+      const response = await fetch(url, { 
+        ...options, 
+        signal: controller.signal 
+      })
+      clearTimeout(timeoutId)
+      
+      if (response.ok || response.status < 500) {
+        return response
+      }
+      // Retry on 5xx errors
+      if (i < retries - 1) {
+        await new Promise(r => setTimeout(r, delay * (i + 1)))
+      }
+    } catch (err) {
+      if (i === retries - 1) throw err
+      await new Promise(r => setTimeout(r, delay * (i + 1)))
+    }
+  }
+  throw new Error(`Failed after ${retries} retries`)
+}
+
 function getAuthHeaders(): HeadersInit {
   const headers: HeadersInit = { "Content-Type": "application/json" }
   const token = typeof window !== "undefined" ? localStorage.getItem("jwt") : null
@@ -19,7 +52,7 @@ function getAuthHeaders(): HeadersInit {
 export async function login(
   credentials: Record<"email" | "password", string>,
 ): Promise<{ token: string; user: User }> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+  const response = await fetchWithRetry(`${API_BASE_URL}/api/auth/login`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -36,7 +69,7 @@ export async function login(
 }
 
 export async function getCurrentUser(): Promise<User> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+  const response = await fetchWithRetry(`${API_BASE_URL}/api/auth/me`, {
     method: "GET",
     headers: getAuthHeaders(),
   })
@@ -49,7 +82,7 @@ export async function getCurrentUser(): Promise<User> {
 }
 
 export async function fetchAgentRegistry(): Promise<Agent[]> {
-  const response = await fetch(`${API_BASE_URL}/api/supervisor/registry`, {
+  const response = await fetchWithRetry(`${API_BASE_URL}/api/supervisor/registry`, {
     method: "GET",
     headers: getAuthHeaders(),
   })

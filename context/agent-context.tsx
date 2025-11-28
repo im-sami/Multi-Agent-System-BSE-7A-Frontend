@@ -35,11 +35,16 @@ export function AgentProvider({ children }: { children: ReactNode }) {
         setAgents(data)
         setError(null)
 
-        // Initial health check
+        // Initial health check - run in parallel for speed
+        const healthPromises = data.map(async (agent) => {
+          const status = await checkAgentHealth(agent)
+          return { id: agent.id, status }
+        })
+        const results = await Promise.all(healthPromises)
         const healthMap: Record<string, "healthy" | "degraded" | "offline"> = {}
-        for (const agent of data) {
-          healthMap[agent.id] = await checkAgentHealth(agent)
-        }
+        results.forEach(({ id, status }) => {
+          healthMap[id] = status
+        })
         setAgentHealth(healthMap)
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : "Failed to load agents"
@@ -61,10 +66,16 @@ export function AgentProvider({ children }: { children: ReactNode }) {
     if (!user || agents.length === 0) return // Don't poll if no user or no agents
 
     const pollHealth = async () => {
+      // Run health checks in parallel
+      const healthPromises = agents.map(async (agent) => {
+        const status = await checkAgentHealth(agent)
+        return { id: agent.id, status }
+      })
+      const results = await Promise.all(healthPromises)
       const healthMap: Record<string, "healthy" | "degraded" | "offline"> = {}
-      for (const agent of agents) {
-        healthMap[agent.id] = await checkAgentHealth(agent)
-      }
+      results.forEach(({ id, status }) => {
+        healthMap[id] = status
+      })
       setAgentHealth(healthMap)
     }
 

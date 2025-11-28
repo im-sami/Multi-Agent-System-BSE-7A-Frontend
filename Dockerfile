@@ -1,38 +1,46 @@
 # Dockerfile for Next.js frontend
 
+# 1. Base image for installing dependencies
 FROM node:20-alpine AS deps
+
 WORKDIR /app
 
-# Use corepack to provide pnpm consistently without global npm installs
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# Configure npm for better network handling
+RUN npm config set registry https://registry.npmmirror.com && \
+    npm config set fetch-retries 5 && \
+    npm config set fetch-retry-mintimeout 20000 && \
+    npm config set fetch-retry-maxtimeout 120000
 
-# Copy only dependency manifests to leverage Docker cache for deps
+# Copy package.json and pnpm-lock.yaml to install dependencies
 COPY package.json pnpm-lock.yaml ./
-# Try a frozen install for reproducibility; if the lockfile is out of date
-# fall back to a regular install so builds succeed. In CI you may prefer
-# to update `pnpm-lock.yaml` and keep `--frozen-lockfile`.
-RUN pnpm install --frozen-lockfile || pnpm install --no-frozen-lockfile
+# Install dependencies using npm (more reliable in restricted network environments)
+RUN npm install --legacy-peer-deps
 
+# 2. Base image for building the application
 FROM node:20-alpine AS builder
 WORKDIR /app
+# Copy dependencies from the 'deps' stage
 COPY --from=deps /app/node_modules ./node_modules
+# Copy the rest of the application source code
 COPY . .
-# Ensure pnpm is available in this stage (enable corepack and prepare pnpm)
-RUN corepack enable && corepack prepare pnpm@latest --activate
-RUN pnpm build
+# Build the Next.js application
+RUN npm run build
 
+# 3. Final image for running the application
 FROM node:20-alpine AS runner
 WORKDIR /app
+
 ENV NODE_ENV=production
 
-# Ensure pnpm is available in the final image
-RUN corepack enable && corepack prepare pnpm@latest --activate
-# Copy build artifacts only
+# Copy necessary files from the builder stage
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/next.config.mjs ./
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
 
+# Expose the port the app runs on
 EXPOSE 3000
-CMD ["pnpm", "start"]
+
+# The command to start the app
+CMD ["npm", "start"]
