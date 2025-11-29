@@ -22,6 +22,15 @@ export default function AgentDirectoryPage() {
     return matchesSearch && matchesCapability
   })
 
+  // Sort agents: online first, then offline
+  const sortedAgents = [...filteredAgents].sort((a, b) => {
+    const aHealth = agentHealth[a.id] || "offline"
+    const bHealth = agentHealth[b.id] || "offline"
+    if (aHealth === "healthy" && bHealth !== "healthy") return -1
+    if (aHealth !== "healthy" && bHealth === "healthy") return 1
+    return 0
+  })
+
   const allCapabilities = Array.from(new Set(agents.flatMap((agent) => agent.capabilities || [])))
 
   return (
@@ -75,11 +84,11 @@ export default function AgentDirectoryPage() {
             {/* Agent Grid */}
             {loading ? (
               <p className="text-muted-foreground">Loading agents...</p>
-            ) : filteredAgents.length === 0 ? (
+            ) : sortedAgents.length === 0 ? (
               <p className="text-muted-foreground">No agents found matching your criteria.</p>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredAgents.map((agent) => (
+                {sortedAgents.map((agent) => (
                   <Link key={agent.id} href={`/agent/${agent.id}`}>
                     <AgentCard
                       agent={agent}

@@ -9,8 +9,18 @@ export default function ClientShell({ children }: { children: React.ReactNode })
 
   // Hide the sidebar for auth-related routes (login and any nested auth pages).
   const hideSidebar = pathname.startsWith("/login") || pathname.startsWith("/auth")
-  // Show Study Tracker sidebar only for its own agent route.
-  const showStudyTrackerSidebar = pathname.startsWith("/agent/daily_revision_proctor_agent")
+  
+  // Show Study Tracker sidebar for daily_revision_proctor_agent and all related pages
+  const studyTrackerRoutes = [
+    "/agent/daily_revision_proctor_agent",
+    "/progress",
+    "/sessions",
+    "/reminders",
+    "/analytics",
+    "/insights",
+    "/settings"
+  ]
+  const showStudyTrackerSidebar = studyTrackerRoutes.some(route => pathname.startsWith(route))
 
   return (
     <div className="flex h-screen overflow-hidden">

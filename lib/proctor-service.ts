@@ -279,7 +279,8 @@ export interface UserReminderData {
 function getAuthHeaders(): HeadersInit {
   const headers: HeadersInit = { 
     "Content-Type": "application/json",
-    "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJzdW1haXJAZ21haWwuY29tIiwidXNlcl9pZCI6MSwiZXhwIjoxNzY0MjcwMzQyfQ.vhGuUgi5oLfkOOsIlumwYsELmaOMthfGo749uGRJaDw"
+    // Token signed with SECRET_KEY from docker-compose, expires 2026-11-29
+    "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0QGV4YW1wbGUuY29tIiwidXNlcl9pZCI6MSwiZXhwIjoxNzk1OTUwODg0fQ.eITxTZvy3S0XbJrlKjHPgsWv2k7WsdEyWmL3yu9Cxqs"
   };
   return headers;
 }

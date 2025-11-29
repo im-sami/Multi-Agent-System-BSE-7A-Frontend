@@ -11,8 +11,8 @@ const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "StudyTracker - Progress & Analytics",
-  description: "Student study progress tracking and analytics platform",
+  title: "Education & Learning Agents",
+  description: "Multi-agent system for educational assistance and learning support",
   generator: "v0.app",
 }
 
