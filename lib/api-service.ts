@@ -120,14 +120,6 @@ export async function submitSupervisorRequest(
           `Failed to submit request: ${response.statusText}`,
       )
     }
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      throw new Error(
-        errorData.error?.message ||
-          errorData.detail ||
-          `Failed to submit request: ${response.statusText}`,
-      )
-    }
 
     return response.json()
   } catch (error) {

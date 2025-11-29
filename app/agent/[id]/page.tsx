@@ -9,6 +9,7 @@ import AgentDetailPanel from "@/components/agent-detail-panel"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { LoadingSpinner } from "@/components/loading-spinner"
+import { MessageSquare } from "lucide-react"
 
 export default function AgentDetailPage() {
   const params = useParams()
@@ -62,9 +63,17 @@ export default function AgentDetailPage() {
                 <h1 className="text-3xl font-bold mb-2">{agent.name}</h1>
                 <p className="text-muted-foreground">{agent.description}</p>
               </div>
-              <Link href="/agents">
-                <Button variant="outline">Back to Directory</Button>
-              </Link>
+              <div className="flex gap-2">
+                <Link href={`/conversation/${agent.id}`}>
+                  <Button>
+                    <MessageSquare className="w-4 h-4 mr-2" />
+                    Start Conversation
+                  </Button>
+                </Link>
+                <Link href="/agents">
+                  <Button variant="outline">Back to Directory</Button>
+                </Link>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

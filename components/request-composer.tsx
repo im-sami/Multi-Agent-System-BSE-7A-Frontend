@@ -23,6 +23,14 @@ export default function RequestComposer({ agentId, onSend, disabled }: RequestCo
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const { addMessage } = useHistory()
 
+  // Check if this is the exam readiness agent - show specialized form
+  const isExamReadinessAgent = agentId === "exam_readiness_agent" || agentId === "exam-readiness-agent"
+  
+  // For exam readiness agent, show the specialized form
+  if (isExamReadinessAgent) {
+    return <ExamReadinessForm agentId={agentId} onSend={onSend} disabled={disabled} />
+  }
+
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
