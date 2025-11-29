@@ -98,22 +98,37 @@ export async function fetchAgentRegistry(): Promise<Agent[]> {
 export async function submitSupervisorRequest(
   payload: RequestPayload,
 ): Promise<RequestResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/supervisor/request`, {
-    method: "POST",
-    headers: getAuthHeaders(),
-    body: JSON.stringify(payload),
-  })
+  // Use AbortController with a longer timeout for LLM-based requests
+  // which can take 30-90 seconds for complex generation tasks
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 120000) // 120s timeout for LLM tasks
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}))
-    throw new Error(
-      errorData.error?.message ||
-        errorData.detail ||
-        `Failed to submit request: ${response.statusText}`,
-    )
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/supervisor/request`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    })
+    clearTimeout(timeoutId)
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(
+        errorData.error?.message ||
+          errorData.detail ||
+          `Failed to submit request: ${response.statusText}`,
+      )
+    }
+
+    return response.json()
+  } catch (error) {
+    clearTimeout(timeoutId)
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Request timed out. The agent may still be processing - please wait a moment and check again.')
+    }
+    throw error
   }
-
-  return response.json()
 }
 
 export async function checkAgentHealth(
@@ -122,11 +137,17 @@ export async function checkAgentHealth(
   // Construct health check URL from agent's base URL
   const healthUrl = `${API_BASE_URL}/api/agent/${agent.id}/health`
 
+  // Use AbortController with a short timeout for health checks
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 5000) // 5s timeout for health checks
+
   try {
     const response = await fetch(healthUrl, {
       method: "GET",
       headers: getAuthHeaders(),
+      signal: controller.signal,
     })
+    clearTimeout(timeoutId)
 
     if (!response.ok) {
       return "offline"
@@ -135,6 +156,7 @@ export async function checkAgentHealth(
     const data = await response.json()
     return data.status || "offline"
   } catch (error) {
+    clearTimeout(timeoutId)
     console.error(`Health check failed for agent ${agent.id}:`, error)
     return "offline"
   }
