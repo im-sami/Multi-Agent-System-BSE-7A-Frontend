@@ -1,76 +1,106 @@
-"use client"
+"use client";
 
-import { createContext, useContext, useState, type ReactNode, useEffect } from "react"
-import { useUser } from "./user-context"
+import {
+  createContext,
+  useContext,
+  useState,
+  type ReactNode,
+  useEffect,
+} from "react";
+import { useUser } from "./user-context";
 
-import { type Message } from "@/types"
+import { type Message } from "@/types";
 
 interface HistoryContextType {
-  getHistory: (agentId: string) => Message[]
-  addMessage: (agentId: string, message: Message) => void
-  clearHistory: (agentId: string) => void
+  getHistory: (agentId: string) => Message[];
+  addMessage: (agentId: string, message: Message) => void;
+  clearHistory: (agentId: string) => void;
 }
 
-const HistoryContext = createContext<HistoryContextType | undefined>(undefined)
+const HistoryContext = createContext<HistoryContextType | undefined>(undefined);
 
-const EMPTY_HISTORY: Message[] = []
+const EMPTY_HISTORY: Message[] = [];
 
 export function HistoryProvider({ children }: { children: ReactNode }) {
-  const [history, setHistory] = useState<Record<string, Message[]>>({})
-  const { user } = useUser()
+  const [history, setHistory] = useState<Record<string, Message[]>>({});
+  const { user } = useUser();
 
-  const getHistoryKey = () => (user ? `agent-history-${user.id}` : null)
+  const getHistoryKey = () => (user ? `agent-history-${user.id}` : null);
 
   // Load from localStorage on mount & user change
   useEffect(() => {
-    const historyKey = getHistoryKey()
+    const historyKey = getHistoryKey();
     if (!historyKey) {
-      setHistory({}) // Clear history if no user
-      return
+      setHistory({}); // Clear history if no user
+      return;
     }
-    const stored = localStorage.getItem(historyKey)
+    const stored = localStorage.getItem(historyKey);
     if (stored) {
       try {
-        setHistory(JSON.parse(stored))
+        const parsed = JSON.parse(stored);
+
+        // Sanitize: ensure all message contents are strings
+        const sanitized: Record<string, Message[]> = {};
+        for (const [agentId, messages] of Object.entries(parsed)) {
+          if (Array.isArray(messages)) {
+            sanitized[agentId] = messages.map((msg: any) => {
+              // If content is an object, stringify it
+              if (msg.content && typeof msg.content === "object") {
+                return {
+                  ...msg,
+                  content: JSON.stringify(msg.content),
+                };
+              }
+              return msg;
+            });
+          }
+        }
+
+        setHistory(sanitized);
       } catch {
-        console.error("Failed to load history from localStorage")
+        console.error("Failed to load history from localStorage");
+        setHistory({});
       }
     } else {
-      setHistory({}) // No history for this user yet
+      setHistory({}); // No history for this user yet
     }
-  }, [user])
+  }, [user]);
 
   // Save to localStorage whenever history changes
   useEffect(() => {
-    const historyKey = getHistoryKey()
+    const historyKey = getHistoryKey();
     if (historyKey) {
-      localStorage.setItem(historyKey, JSON.stringify(history))
+      localStorage.setItem(historyKey, JSON.stringify(history));
     }
-  }, [history, user])
+  }, [history, user]);
 
-  const getHistory = (agentId: string) => history[agentId] || EMPTY_HISTORY
+  const getHistory = (agentId: string) => history[agentId] || EMPTY_HISTORY;
 
   const addMessage = (agentId: string, message: Message) => {
     setHistory((prev) => ({
       ...prev,
       [agentId]: [...(prev[agentId] || []), message],
-    }))
-  }
+    }));
+  };
 
   const clearHistory = (agentId: string) => {
     setHistory((prev) => ({
       ...prev,
       [agentId]: [],
-    }))
-  }
+    }));
+  };
 
-  return <HistoryContext.Provider value={{ getHistory, addMessage, clearHistory }}>{children}</HistoryContext.Provider>
+  return (
+    <HistoryContext.Provider value={{ getHistory, addMessage, clearHistory }}>
+      {children}
+    </HistoryContext.Provider>
+  );
 }
 
 export function useHistory() {
-  const context = useContext(HistoryContext)
+  const context = useContext(HistoryContext);
   if (!context) {
-    throw new Error("useHistory must be used within HistoryProvider")
+    throw new Error("useHistory must be used within HistoryProvider");
   }
-  return context
+  return context;
 }

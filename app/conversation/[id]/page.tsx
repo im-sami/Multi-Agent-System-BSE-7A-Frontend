@@ -1,35 +1,37 @@
-"use client"
+"use client";
 
-import { useParams } from "next/navigation"
-import Link from "next/link"
-import { useState } from "react"
-import Header from "@/components/header"
-import { useAgents } from "@/context/agent-context"
-import ChatWindow from "@/components/chat-window"
-import { OfflineWarning } from "@/components/offline-warning"
-import { Button } from "@/components/ui/button"
-import AgentDetailPanel from "@/components/agent-detail-panel"
-import HistoryPanel from "@/components/history-panel"
-import { Sheet, SheetContent } from "@/components/ui/sheet"
-import { useIsMobile } from "@/hooks/use-mobile"
-import { submitSupervisorRequest } from "@/lib/api-service"
-import { useHistory } from "@/context/history-context"
-import { type RequestPayload } from "@/types"
+import { useParams } from "next/navigation";
+import Link from "next/link";
+import { useState } from "react";
+import Header from "@/components/header";
+import { useAgents } from "@/context/agent-context";
+import ChatWindow from "@/components/chat-window";
+import { OfflineWarning } from "@/components/offline-warning";
+import { Button } from "@/components/ui/button";
+import AgentDetailPanel from "@/components/agent-detail-panel";
+import HistoryPanel from "@/components/history-panel";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { submitSupervisorRequest } from "@/lib/api-service";
+import { useHistory } from "@/context/history-context";
+import { type RequestPayload } from "@/types";
 
 export default function ConversationPage() {
-  const params = useParams()
-  const agentId = params.id as string
-  const { agents, agentHealth } = useAgents()
-  const [selectedAlternative, setSelectedAlternative] = useState<string | null>(null)
-  const [showHistory, setShowHistory] = useState(false)
-  const [showDetailPanel, setShowDetailPanel] = useState(false)
-  const isMobile = useIsMobile()
-  const { addMessage } = useHistory()
-  const [loading, setLoading] = useState(false)
+  const params = useParams();
+  const agentId = params.id as string;
+  const { agents, agentHealth } = useAgents();
+  const [selectedAlternative, setSelectedAlternative] = useState<string | null>(
+    null
+  );
+  const [showHistory, setShowHistory] = useState(false);
+  const [showDetailPanel, setShowDetailPanel] = useState(false);
+  const isMobile = useIsMobile();
+  const { addMessage } = useHistory();
+  const [loading, setLoading] = useState(false);
 
-  const agent = agents.find((a) => a.id === agentId)
-  const health = agentHealth[agentId]
-  const isOffline = health === "offline"
+  const agent = agents.find((a) => a.id === agentId);
+  const health = agentHealth[agentId];
+  const isOffline = health === "offline";
 
   if (!agent) {
     return (
@@ -46,11 +48,13 @@ export default function ConversationPage() {
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   if (isOffline && !selectedAlternative) {
-    const alternativeAgents = agents.filter((a) => a.id !== agentId && agentHealth[a.id] !== "offline")
+    const alternativeAgents = agents.filter(
+      (a) => a.id !== agentId && agentHealth[a.id] !== "offline"
+    );
 
     return (
       <div className="flex h-screen bg-background text-foreground">
@@ -62,7 +66,7 @@ export default function ConversationPage() {
                 agentName={agent.name}
                 onSelectAlternative={() => {
                   if (alternativeAgents.length > 0) {
-                    setSelectedAlternative(alternativeAgents[0].id)
+                    setSelectedAlternative(alternativeAgents[0].id);
                   }
                 }}
               />
@@ -90,41 +94,54 @@ export default function ConversationPage() {
           </div>
         </div>
       </div>
-    )
+    );
   }
 
-  const displayAgentId = selectedAlternative || agentId
-  const displayAgent = agents.find((a) => a.id === displayAgentId)
+  const displayAgentId = selectedAlternative || agentId;
+  const displayAgent = agents.find((a) => a.id === displayAgentId);
 
   const handleSendRequest = async (payload: RequestPayload) => {
     const userMessage = {
       type: "user" as const,
       content: payload.request,
       timestamp: new Date().toISOString(),
-    }
-    addMessage(displayAgentId, userMessage)
+    };
+    addMessage(displayAgentId, userMessage);
 
-    setLoading(true)
+    setLoading(true);
     try {
-      const response = await submitSupervisorRequest(payload)
+      const response = await submitSupervisorRequest(payload);
+
+      // Handle both string and object responses (e.g., AssessmentResponse)
+      let content: string;
+      if (typeof response.response === "string") {
+        content = response.response;
+      } else if (response.response && typeof response.response === "object") {
+        // Serialize object responses (like AssessmentResponse) to JSON string
+        content = JSON.stringify(response.response);
+      } else {
+        content = "No response content.";
+      }
+
       const agentResponse = {
         type: "agent" as const,
-        content: response.response || "No response content.",
+        content,
         timestamp: response.timestamp,
         metadata: response.metadata,
-      }
-      addMessage(displayAgentId, agentResponse)
+      };
+      addMessage(displayAgentId, agentResponse);
     } catch (error) {
       const errorMessage = {
         type: "error" as const,
-        content: error instanceof Error ? error.message : "An unknown error occurred.",
+        content:
+          error instanceof Error ? error.message : "An unknown error occurred.",
         timestamp: new Date().toISOString(),
-      }
-      addMessage(displayAgentId, errorMessage)
+      };
+      addMessage(displayAgentId, errorMessage);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const renderChatWindow = () => (
     <ChatWindow
@@ -133,7 +150,7 @@ export default function ConversationPage() {
       onToggleDetailPanel={() => setShowDetailPanel(!showDetailPanel)}
       onSendRequest={handleSendRequest}
     />
-  )
+  );
 
   if (isMobile) {
     return (
@@ -142,17 +159,25 @@ export default function ConversationPage() {
           {renderChatWindow()}
           <Sheet open={showHistory} onOpenChange={setShowHistory}>
             <SheetContent side="right" className="w-full max-w-md p-0">
-              <HistoryPanel agentId={displayAgentId} onClose={() => setShowHistory(false)} />
+              <HistoryPanel
+                agentId={displayAgentId}
+                onClose={() => setShowHistory(false)}
+              />
             </SheetContent>
           </Sheet>
           <Sheet open={showDetailPanel} onOpenChange={setShowDetailPanel}>
             <SheetContent side="left" className="w-full max-w-md p-0">
-              {displayAgent && <AgentDetailPanel agent={displayAgent} onClose={() => setShowDetailPanel(false)} />}
+              {displayAgent && (
+                <AgentDetailPanel
+                  agent={displayAgent}
+                  onClose={() => setShowDetailPanel(false)}
+                />
+              )}
             </SheetContent>
           </Sheet>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -169,5 +194,5 @@ export default function ConversationPage() {
         </div>
       )}
     </div>
-  )
+  );
 }

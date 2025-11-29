@@ -15,6 +15,7 @@ interface RequestComposerProps {
   disabled?: boolean;
 }
 
+<<<<<<< HEAD
 export default function RequestComposer({ agentId, onSend, disabled }: RequestComposerProps) {
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
@@ -22,16 +23,37 @@ export default function RequestComposer({ agentId, onSend, disabled }: RequestCo
   const [autoRoute, setAutoRoute] = useState(true)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const { addMessage } = useHistory()
+=======
+export default function RequestComposer({
+  agentId,
+  onSend,
+  disabled,
+}: RequestComposerProps) {
+  // Check if this is the exam-readiness-agent
+  if (agentId === "exam-readiness-agent") {
+    return (
+      <ExamReadinessForm
+        agentId={agentId}
+        onSend={onSend}
+        disabled={disabled}
+      />
+    );
+  }
+>>>>>>> exam_readiness_frontend/main
+
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [priority, setPriority] = useState(5);
+  const [autoRoute, setAutoRoute] = useState(false);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const { addMessage } = useHistory();
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
       if (!input.trim() || loading || disabled) return;
 
-      const request = input.trim();
-      setInput("");
-      setLoading(true);
-
+<<<<<<< HEAD
     const payload: RequestPayload = {
       // When autoRoute is true we avoid providing an explicit agentId by
       // using an empty string. The backend treats a falsy/empty agentId
@@ -64,6 +86,36 @@ export default function RequestComposer({ agentId, onSend, disabled }: RequestCo
       setLoading(false)
     }
   }, [input, loading, disabled, priority, autoRoute, agentId, onSend, addMessage])
+=======
+      const request = input.trim();
+      setInput("");
+      setLoading(true);
+
+      const payload: RequestPayload = {
+        agentId: autoRoute ? "supervisor" : agentId,
+        request,
+        priority,
+        autoRoute,
+        modelOverride: null,
+      };
+
+      try {
+        await onSend(payload);
+      } catch (error) {
+        addMessage(agentId, {
+          type: "error",
+          content: `Error: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`,
+          timestamp: new Date().toISOString(),
+        });
+      } finally {
+        setLoading(false);
+      }
+    },
+    [input, loading, disabled, priority, autoRoute, agentId, onSend, addMessage]
+  );
+>>>>>>> exam_readiness_frontend/main
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

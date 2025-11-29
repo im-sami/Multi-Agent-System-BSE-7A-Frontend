@@ -98,11 +98,22 @@ export async function fetchAgentRegistry(): Promise<Agent[]> {
 export async function submitSupervisorRequest(
   payload: RequestPayload,
 ): Promise<RequestResponse> {
+<<<<<<< HEAD
   // Use AbortController with a longer timeout for LLM-based requests
   // which can take 30-90 seconds for complex generation tasks
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), 120000) // 120s timeout for LLM tasks
 
+=======
+  // Increase timeout for exam-readiness-agent with RAG (embeddings take time)
+  const timeoutMs = payload.agentId === 'exam-readiness-agent' && payload.use_rag 
+    ? 300000 // 5 minutes for RAG operations (increased from 2 minutes)
+    : 60000  // 1 minute for regular requests
+
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+
+>>>>>>> exam_readiness_frontend/main
   try {
     const response = await fetch(`${API_BASE_URL}/api/supervisor/request`, {
       method: "POST",
@@ -110,16 +121,12 @@ export async function submitSupervisorRequest(
       body: JSON.stringify(payload),
       signal: controller.signal,
     })
+<<<<<<< HEAD
+=======
+
+>>>>>>> exam_readiness_frontend/main
     clearTimeout(timeoutId)
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      throw new Error(
-        errorData.error?.message ||
-          errorData.detail ||
-          `Failed to submit request: ${response.statusText}`,
-      )
-    }
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
       throw new Error(
@@ -132,9 +139,22 @@ export async function submitSupervisorRequest(
     return response.json()
   } catch (error) {
     clearTimeout(timeoutId)
+<<<<<<< HEAD
     if (error instanceof Error && error.name === 'AbortError') {
       throw new Error('Request timed out. The agent may still be processing - please wait a moment and check again.')
     }
+=======
+    
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(
+        `Request timed out after ${timeoutMs / 1000} seconds. ` +
+        (payload.use_rag 
+          ? 'RAG operations with embeddings can take longer. Please try again or reduce the number of documents.'
+          : 'Please try again or contact support if the issue persists.')
+      )
+    }
+    
+>>>>>>> exam_readiness_frontend/main
     throw error
   }
 }
