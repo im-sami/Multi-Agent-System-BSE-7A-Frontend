@@ -1,72 +1,100 @@
-"use client"
+"use client";
 
-import type React from "react"
-import { useState, useRef, useEffect, useCallback } from "react"
-import { Button } from "@/components/ui/button"
-import { Send } from "lucide-react"
-import { useHistory } from "@/context/history-context"
-import { submitSupervisorRequest } from "@/lib/api-service"
-import { type RequestPayload } from "@/types"
+import type React from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { Button } from "@/components/ui/button";
+import { Send } from "lucide-react";
+import { useHistory } from "@/context/history-context";
+import { submitSupervisorRequest } from "@/lib/api-service";
+import { type RequestPayload } from "@/types";
+import ExamReadinessForm from "@/components/agents/exam-readiness-form";
 
 interface RequestComposerProps {
-  agentId: string
-  onSend: (payload: RequestPayload) => Promise<void>
-  disabled?: boolean
+  agentId: string;
+  onSend: (payload: RequestPayload) => Promise<void>;
+  disabled?: boolean;
 }
 
-export default function RequestComposer({ agentId, onSend, disabled }: RequestComposerProps) {
-  const [input, setInput] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [priority, setPriority] = useState(5)
-  const [autoRoute, setAutoRoute] = useState(false)
-  const inputRef = useRef<HTMLTextAreaElement>(null)
-  const { addMessage } = useHistory()
+export default function RequestComposer({
+  agentId,
+  onSend,
+  disabled,
+}: RequestComposerProps) {
+  // Check if this is the exam-readiness-agent
+  if (agentId === "exam-readiness-agent") {
+    return (
+      <ExamReadinessForm
+        agentId={agentId}
+        onSend={onSend}
+        disabled={disabled}
+      />
+    );
+  }
 
-  const handleSubmit = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!input.trim() || loading || disabled) return
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [priority, setPriority] = useState(5);
+  const [autoRoute, setAutoRoute] = useState(false);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const { addMessage } = useHistory();
 
-    const request = input.trim()
-    setInput("")
-    setLoading(true)
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!input.trim() || loading || disabled) return;
 
-    const payload: RequestPayload = {
-      agentId: autoRoute ? "supervisor" : agentId,
-      request,
-      priority,
-      autoRoute,
-      modelOverride: null,
-    }
+      const request = input.trim();
+      setInput("");
+      setLoading(true);
 
-    try {
-      await onSend(payload)
-    } catch (error) {
-      addMessage(agentId, {
-        type: "error",
-        content: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
-        timestamp: new Date().toISOString(),
-      })
-    } finally {
-      setLoading(false)
-    }
-  }, [input, loading, disabled, priority, autoRoute, agentId, onSend, addMessage])
+      const payload: RequestPayload = {
+        agentId: autoRoute ? "supervisor" : agentId,
+        request,
+        priority,
+        autoRoute,
+        modelOverride: null,
+      };
+
+      try {
+        await onSend(payload);
+      } catch (error) {
+        addMessage(agentId, {
+          type: "error",
+          content: `Error: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`,
+          timestamp: new Date().toISOString(),
+        });
+      } finally {
+        setLoading(false);
+      }
+    },
+    [input, loading, disabled, priority, autoRoute, agentId, onSend, addMessage]
+  );
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && inputRef.current === document.activeElement) {
-        handleSubmit(e as any)
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        e.key === "Enter" &&
+        inputRef.current === document.activeElement
+      ) {
+        handleSubmit(e as any);
       }
-    }
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [handleSubmit])
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleSubmit]);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       {/* Controls */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3 flex-1">
-          <label htmlFor="priority" className="text-xs font-medium text-muted-foreground min-w-fit">
+          <label
+            htmlFor="priority"
+            className="text-xs font-medium text-muted-foreground min-w-fit"
+          >
             Priority:
           </label>
           <input
@@ -80,7 +108,9 @@ export default function RequestComposer({ agentId, onSend, disabled }: RequestCo
             className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer focus-ring"
             aria-label="Request priority"
           />
-          <span className="text-xs font-semibold text-primary min-w-fit">{priority}</span>
+          <span className="text-xs font-semibold text-primary min-w-fit">
+            {priority}
+          </span>
         </div>
         <div className="flex items-center gap-2">
           <input
@@ -91,7 +121,10 @@ export default function RequestComposer({ agentId, onSend, disabled }: RequestCo
             disabled={loading || disabled}
             className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
           />
-          <label htmlFor="auto-route" className="text-xs font-medium text-muted-foreground">
+          <label
+            htmlFor="auto-route"
+            className="text-xs font-medium text-muted-foreground"
+          >
             Auto-Route
           </label>
         </div>
@@ -121,7 +154,9 @@ export default function RequestComposer({ agentId, onSend, disabled }: RequestCo
       </div>
 
       {/* Helper text */}
-      <p className="text-xs text-muted-foreground">Tip: Use Ctrl+Enter to quickly send your request</p>
+      <p className="text-xs text-muted-foreground">
+        Tip: Use Ctrl+Enter to quickly send your request
+      </p>
     </form>
-  )
+  );
 }

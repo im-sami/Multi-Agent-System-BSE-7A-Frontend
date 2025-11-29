@@ -65,22 +65,48 @@ export async function fetchAgentRegistry(): Promise<Agent[]> {
 export async function submitSupervisorRequest(
   payload: RequestPayload,
 ): Promise<RequestResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/supervisor/request`, {
-    method: "POST",
-    headers: getAuthHeaders(),
-    body: JSON.stringify(payload),
-  })
+  // Increase timeout for exam-readiness-agent with RAG (embeddings take time)
+  const timeoutMs = payload.agentId === 'exam-readiness-agent' && payload.use_rag 
+    ? 300000 // 5 minutes for RAG operations (increased from 2 minutes)
+    : 60000  // 1 minute for regular requests
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}))
-    throw new Error(
-      errorData.error?.message ||
-        errorData.detail ||
-        `Failed to submit request: ${response.statusText}`,
-    )
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/supervisor/request`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    })
+
+    clearTimeout(timeoutId)
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(
+        errorData.error?.message ||
+          errorData.detail ||
+          `Failed to submit request: ${response.statusText}`,
+      )
+    }
+
+    return response.json()
+  } catch (error) {
+    clearTimeout(timeoutId)
+    
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(
+        `Request timed out after ${timeoutMs / 1000} seconds. ` +
+        (payload.use_rag 
+          ? 'RAG operations with embeddings can take longer. Please try again or reduce the number of documents.'
+          : 'Please try again or contact support if the issue persists.')
+      )
+    }
+    
+    throw error
   }
-
-  return response.json()
 }
 
 export async function checkAgentHealth(
