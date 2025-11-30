@@ -39,6 +39,14 @@ COPY . .
 # Build the Next.js application
 RUN pnpm run build
 
+# Build the embedded Citation Manager UI (CRA) so iframe can serve built assets
+# Configure citation UI build to serve under public subpath so assets resolve in iframe
+ENV REACT_APP_SUPERVISOR_URL=http://localhost:8000
+ENV PUBLIC_URL=/citation-manager-ui/build
+RUN cd public/citation-manager-ui \
+    && npm install --no-audit --no-fund \
+    && npm run build
+
 # 3. Final image for running the application
 FROM node:20-alpine AS runner
 WORKDIR /app

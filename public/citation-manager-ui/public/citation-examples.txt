@@ -1,0 +1,31 @@
+Create an APA citation for the article titled "Deep Learning Advances" by John Smith and Jane Doe (2021), published in Nature, volume 12, issue 3, pages 44–55. DOI: 10.1038/s41586-020-2649-2
+Create an APA citation for the book "Effective Java" by Joshua Bloch (2018), published by Addison-Wesley. ISBN: 9780134685991
+Create an APA citation for the web page "Understanding Async/Await in JavaScript" by MDN Web Docs (2022). URL: https://developer.mozilla.org/en-US/docs/Learn/JavaScript/Asynchronous/Async_await
+
+Create an MLA citation for the article "Neural Networks in Practice" by Sara Nguyen and Tom Lee (2019), published in Journal of AI Research, volume 15, issue 1, pages 1–20. DOI: 10.1234/jair.2019.1501
+Create an MLA citation for the book "Introduction to Algorithms" by Thomas H. Cormen; Charles E. Leiserson; Ronald L. Rivest; Clifford Stein (2009), published by MIT Press. ISBN: 9780262033848
+Create an MLA citation for the web page "CSS Grid Layout Guide" by MDN Web Docs (2023). URL: https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Grid_Layout
+
+Create an Chicago citation for the article "Microservices at Scale" by Kevin Patel (2018), published in Software Engineering Review, volume 5, issue 2, pages 77–93. DOI: 10.5678/ser.2018.0502
+Create an Chicago citation for the book "Design Patterns: Elements of Reusable Object-Oriented Software" by Erich Gamma; Richard Helm; Ralph Johnson; John Vlissides (1994), published by Addison-Wesley. ISBN: 9780201633610
+Create an Chicago citation for the web page "JavaScript Promises Explained" by MDN Web Docs (2023). URL: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Using_promises
+
+Create an Harvard citation for the article "Quantum Computing Basics" by Alice Brown (2020), published in Journal of Computing Research, volume 8, issue 2, pages 101–120. DOI: 10.5555/quant.2020.8120
+Create an Harvard citation for the book "The Pragmatic Programmer" by Andrew Hunt and David Thomas (1999), published by Addison-Wesley. ISBN: 9780201616224
+Create an Harvard citation for the web page "REST API Design Best Practices" by ThoughtWorks (2021). URL: https://www.thoughtworks.com/insights/blog/rest-api-design
+
+Create an IEEE citation for the article "Blockchain for Supply Chain" by Ming Zhao (2021), published in IEEE Transactions on Engineering Management, volume 68, issue 4, pages 1203–1215. DOI: 10.1109/TEM.2021.3076543
+Create an IEEE citation for the book "Clean Code" by Robert C. Martin (2008), published by Prentice Hall. ISBN: 9780132350884
+Create an IEEE citation for the web page "Kubernetes Basics" by CNCF (2020). URL: https://kubernetes.io/docs/tutorials/kubernetes-basics/
+
+In 2023, John Smith and Alice Chen published an article called “Climate Change Impacts on Urban Heat Islands” that really helped my project. It appeared in the Journal of Environmental Science, volume 58, issue 4, pages 123–145. If you want the exact version they used, the DOI is 10.1000/jes.2023.456789 and the canonical link is `https://doi.org/10.1000/jes.2023.456789`. Their methods were straightforward and the conclusions were clear.
+
+I’ve been learning a lot from Maria Gonzalez’s book “Data Science for Everyone,” especially the introductory chapters covering basic modeling concepts. It was published by Cambridge University Press in 2019, and the ISBN is 978-1-107-12345-6. When I got stuck, I checked the publisher’s page for examples: `https://www.cambridge.org/books/data-science-for-everyone`. The case studies in the middle chapters are very approachable.
+
+I first understood React Hooks from a practical perspective thanks to a DevBlog post by Sana Khan, titled “How to Start With React Hooks.” It was published May 12, 2024, and I accessed it later on June 20, 2024. The post lives at `https://devblog.example.com/react-hooks-guide`, and the explanations balance theory with quick snippets that work in real projects.
+
+One of the strongest results I’ve seen on efficiency for graph neural networks came from Kevin Lee and Rahul Patel at NeurIPS 2021. Their paper, “Efficient Graph Neural Networks,” was included in the Proceedings of NeurIPS (volume 34), pages 210–225. If you need the persistent identifier, the DOI is 10.5555/neurips.2021.lee-patel, and the paper is listed at `https://papers.nips.cc/paper/2021/hash/efficient-gnn.html`.
+
+Residual networks really clicked for me after reading “Deep Residual Learning for Image Recognition” by Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun. It’s from the IEEE Conference on Computer Vision and Pattern Recognition (CVPR), 2016, pages 770–778. The DOI is 10.1109/CVPR.2016.90, and the open access PDF is at `https://openaccess.thecvf.com/content_cvpr_2016/papers/He_Deep_Residual_Learning_CVPR_2016_paper.pdf`.
+
+For practical microservices guidance, I liked “A Practical Guide to Microservices,” authored by Sara Ahmed and Martin Richardson. It’s in the Software Architecture Journal, 2022, volume 12, issue 3, pages 45–67. The article balances design trade‑offs with deployment strategies you can apply quickly. The DOI is 10.1234/saj.2022.003, and there’s a summary at `https://sajournal.example.com/microservices-guide`. It’s a good overview without being overly academic.

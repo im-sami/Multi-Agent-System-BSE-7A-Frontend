@@ -1,7 +1,7 @@
 // Environment configuration
 export const ENV = {
-  // Backend API URL - GitHub Codespaces
-  BACKEND_API_URL: "http://localhost:8080/api",
+  // Backend API URL - Proctor Agent (Study Session Tracker)
+  BACKEND_API_URL: "http://localhost:8081/api",
   
   // Default User ID (can be overridden)
   DEFAULT_USER_ID: "1",

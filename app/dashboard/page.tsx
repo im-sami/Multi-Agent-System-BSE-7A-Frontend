@@ -12,6 +12,7 @@ import { submitSupervisorRequest } from "@/lib/api-service"
 import HealthStatus from "@/components/health-status"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import { formatResponseToChat } from "@/lib/response-formatter"
 
 export default function DashboardPage() {
   const { agents, loading, agentHealth } = useAgents()
@@ -54,13 +55,30 @@ export default function DashboardPage() {
 
       // Store user answer and agent response to conversation
       addMessage(chosenAgent, { type: "user", content: answer, timestamp: new Date().toISOString() })
-      addMessage(chosenAgent, { type: "agent", content: response.response || "No response content.", timestamp: response.timestamp || new Date().toISOString(), metadata: response.metadata })
+      
+      // Detect context for better formatting
+      let context = "general";
+      const responseData = typeof response.response === "string" 
+        ? (() => { try { return JSON.parse(response.response); } catch { return null; } })()
+        : response.response;
+      if (responseData?.quiz_content || responseData?.questions) {
+        context = "quiz";
+      }
+      
+      // Format response to natural language
+      const formattedContent = await formatResponseToChat(response.response || "No response content.", context)
+      
+      addMessage(chosenAgent, { type: "agent", content: formattedContent, timestamp: response.timestamp || new Date().toISOString(), metadata: response.metadata })
 
       setLoadingQuick(false)
       setPendingPayload(null)
       try { router.push(`/conversation/${chosenAgent}`) } catch (e) { /* noop */ }
     } catch (err) {
-      addMessage("system", { type: "error", content: err instanceof Error ? err.message : "Unknown error", timestamp: new Date().toISOString() })
+      const errorContent = await formatResponseToChat(
+        err instanceof Error ? { error: err.message } : { error: "Unknown error" },
+        "error"
+      )
+      addMessage("system", { type: "error", content: errorContent, timestamp: new Date().toISOString() })
       setLoadingQuick(false)
       setPendingPayload(null)
       setClarifyingQuestions([]) // Clear questions on error
@@ -107,9 +125,22 @@ export default function DashboardPage() {
 
         // Add the user message and assistant response to the chosen agent conversation
         addMessage(chosenAgent, userMessage)
+        
+        // Detect context for better formatting
+        let context = "general";
+        const responseData = typeof response.response === "string" 
+          ? (() => { try { return JSON.parse(response.response); } catch { return null; } })()
+          : response.response;
+        if (responseData?.quiz_content || responseData?.questions) {
+          context = "quiz";
+        }
+        
+        // Format response to natural language
+        const formattedContent = await formatResponseToChat(response.response || "No response content.", context)
+        
         const agentResponse = {
           type: "agent" as const,
-          content: response.response || "No response content.",
+          content: formattedContent,
           timestamp: response.timestamp || new Date().toISOString(),
           metadata: response.metadata,
         }
@@ -121,9 +152,13 @@ export default function DashboardPage() {
           console.error("Failed to navigate to conversation:", navErr)
         }
       } catch (err) {
+        const errorContent = await formatResponseToChat(
+          err instanceof Error ? { error: err.message } : { error: "An unknown error occurred." },
+          "error"
+        )
         const errorMessage = {
           type: "error" as const,
-          content: err instanceof Error ? err.message : "An unknown error occurred.",
+          content: errorContent,
           timestamp: new Date().toISOString(),
         }
         addMessage("system", errorMessage)
@@ -202,12 +237,12 @@ export default function DashboardPage() {
           <div className="max-w-6xl mx-auto space-y-6">
             {/* Header */}
             <div>
-              <h1 className="text-3xl font-bold mb-2">Dashboard</h1>
-              <p className="text-muted-foreground">Quick access to agents and recent activity</p>
+              <h1 className="text-4xl md:text-5xl font-heading heading-gradient-strong mb-2">Dashboard</h1>
+              <p className="text-sm md:text-base text-muted-foreground">Quick access to agents and recent activity</p>
             </div>
 
             {/* Quick Composer */}
-            <Card className="p-6">
+            <Card className="p-6 md:p-7">
               <h2 className="text-xl font-semibold mb-4">Quick Request</h2>
               <RequestComposer
                 agentId={selectedAgentId || agents[0]?.id}
@@ -226,7 +261,7 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Active Agents */}
               <div className="lg:col-span-2">
-                <Card className="p-6">
+                <Card className="p-6 md:p-7">
                   <h2 className="text-xl font-semibold mb-4">Active Agents</h2>
                   {loading ? (
                     <p className="text-muted-foreground">Loading agents...</p>
@@ -259,7 +294,7 @@ export default function DashboardPage() {
 
               {/* Aggregated Health */}
               <div>
-                <Card className="p-6">
+                <Card className="p-6 md:p-7">
                   <h2 className="text-xl font-semibold mb-4">System Health</h2>
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">

@@ -25,11 +25,11 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
 
   return (
     <>
-      <div className="p-4 border-b border-border bg-gradient-to-r from-primary/5 to-accent/5">
+      <div className="p-5 md:p-6 border-b border-border bg-gradient-to-r from-primary/10 to-accent/10">
         <div className="flex items-center justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-bold text-primary">Education & Learning Agents</h1>
-            <p className="text-xs text-muted-foreground mt-0.5">Multi-Agent System</p>
+            <h1 className="text-2xl md:text-3xl font-heading heading-gradient-soft">Education & Learning Agents</h1>
+            <p className="text-sm text-muted-foreground mt-1">Multi-Agent System</p>
           </div>
           {onToggleSidebar && (
             <Button
@@ -45,7 +45,7 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
           )}
         </div>
       </div>
-      <div className="p-4 flex justify-end items-center gap-4 border-b border-border">
+      <div className="p-4 md:p-5 flex justify-end items-center gap-4 border-b border-border">
         {user && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

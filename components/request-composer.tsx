@@ -91,7 +91,8 @@ export default function RequestComposer({ agentId, onSend, disabled }: RequestCo
     <form onSubmit={handleSubmit} className="space-y-3">
       {/* Controls */}
       <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3 flex-1">
+        {/* Priority Scale - Commented Out */}
+        {/* <div className="flex items-center gap-3 flex-1">
           <label
             htmlFor="priority"
             className="text-xs font-medium text-muted-foreground min-w-fit"
@@ -112,7 +113,7 @@ export default function RequestComposer({ agentId, onSend, disabled }: RequestCo
           <span className="text-xs font-semibold text-primary min-w-fit">
             {priority}
           </span>
-        </div>
+        </div> */}
         <div className="flex items-center gap-2">
           <input
             type="checkbox"

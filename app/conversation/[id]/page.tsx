@@ -15,6 +15,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { submitSupervisorRequest } from "@/lib/api-service";
 import { useHistory } from "@/context/history-context";
 import { type RequestPayload } from "@/types";
+import { formatResponseToChat } from "@/lib/response-formatter";
 
 export default function ConversationPage() {
   const params = useParams();
@@ -112,13 +113,24 @@ export default function ConversationPage() {
     try {
       const response = await submitSupervisorRequest(payload);
 
-      // Handle both string and object responses (e.g., AssessmentResponse)
+      // Detect context for better formatting
+      let context = "general";
+      const responseData = typeof response.response === "string" 
+        ? (() => { try { return JSON.parse(response.response); } catch { return null; } })()
+        : response.response;
+      
+      if (responseData?.quiz_content || responseData?.questions) {
+        context = "quiz";
+      }
+
+      // Handle both string and object responses and convert to natural language
       let content: string;
       if (typeof response.response === "string") {
-        content = response.response;
+        // Try to format if it's JSON, otherwise use as-is
+        content = await formatResponseToChat(response.response, context);
       } else if (response.response && typeof response.response === "object") {
-        // Serialize object responses (like AssessmentResponse) to JSON string
-        content = JSON.stringify(response.response);
+        // Convert object responses to natural language using Gemini
+        content = await formatResponseToChat(response.response, context);
       } else {
         content = "No response content.";
       }
@@ -131,10 +143,15 @@ export default function ConversationPage() {
       };
       addMessage(displayAgentId, agentResponse);
     } catch (error) {
+      // Format error messages into natural language as well
+      const errorContent = await formatResponseToChat(
+        error instanceof Error ? { error: error.message } : { error: "An unknown error occurred." },
+        "error"
+      );
+      
       const errorMessage = {
         type: "error" as const,
-        content:
-          error instanceof Error ? error.message : "An unknown error occurred.",
+        content: errorContent,
         timestamp: new Date().toISOString(),
       };
       addMessage(displayAgentId, errorMessage);

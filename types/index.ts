@@ -21,6 +21,7 @@ export interface Message {
   type: MessageType;
   content: string;
   timestamp: string; // ISO
+  metadata?: any;
 }
 
 export interface RequestPayload {

@@ -64,7 +64,7 @@ export default function AgentDetailPage() {
                 <p className="text-muted-foreground">{agent.description}</p>
               </div>
               <div className="flex gap-2">
-                <Link href={`/conversation/${agent.id}`}>
+                <Link href={agent.id === "citation_manager_agent" ? "/citation-manager-ui/build/index.html" : `/conversation/${agent.id}`}>
                   <Button>
                     <MessageSquare className="w-4 h-4 mr-2" />
                     Start Conversation
