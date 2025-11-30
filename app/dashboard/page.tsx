@@ -13,6 +13,7 @@ import HealthStatus from "@/components/health-status"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { formatResponseToChat } from "@/lib/response-formatter"
+import { ChevronDown, ChevronUp } from "lucide-react"
 
 export default function DashboardPage() {
   const { agents, loading, agentHealth } = useAgents()
@@ -226,121 +227,148 @@ export default function DashboardPage() {
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
     .slice(0, 5)
 
-  // Get active agents (healthy status)
-  const activeAgents = agents.slice(0, 3)
+  // Get counts for health status
+  const healthCounts = {
+    healthy: Object.values(agentHealth).filter((s) => s === "healthy").length,
+    degraded: Object.values(agentHealth).filter((s) => s === "degraded").length,
+    offline: Object.values(agentHealth).filter((s) => s === "offline").length,
+  }
+
+  const [showRecentActivity, setShowRecentActivity] = useState(false)
 
   return (
     <div className="flex h-screen bg-background text-foreground">
       <div className="flex-1 flex flex-col">
         <Header />
-        <div className="flex-1 overflow-auto p-6">
-          <div className="max-w-6xl mx-auto space-y-6">
-            {/* Header */}
-            <div>
-              <h1 className="text-4xl md:text-5xl font-heading heading-gradient-strong mb-2">Dashboard</h1>
-              <p className="text-sm md:text-base text-muted-foreground">Quick access to agents and recent activity</p>
-            </div>
+        <div className="flex-1 overflow-auto">
+          <ClarificationModal
+            open={showClarification}
+            questions={clarifyingQuestions}
+            onCancel={() => { setShowClarification(false); setPendingPayload(null) }}
+            onSubmit={handleClarificationSubmit}
+          />
 
-            {/* Quick Composer */}
-            <Card className="p-6 md:p-7">
-              <h2 className="text-xl font-semibold mb-4">Quick Request</h2>
-              <RequestComposer
-                agentId={selectedAgentId || agents[0]?.id}
-                onAgentChange={setSelectedAgentId}
-                onSend={handleQuickSend}
-                disabled={loadingQuick}
-              />
-            </Card>
-            <ClarificationModal
-              open={showClarification}
-              questions={clarifyingQuestions}
-              onCancel={() => { setShowClarification(false); setPendingPayload(null) }}
-              onSubmit={handleClarificationSubmit}
-            />
+          {/* Main Content */}
+          <div className="p-6 md:p-8">
+            <div className="max-w-6xl mx-auto space-y-6">
+              
+              {/* Header with inline stats */}
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                  <h1 className="text-2xl md:text-3xl font-bold">Dashboard</h1>
+                  <p className="text-sm text-muted-foreground">Manage your AI learning agents</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-500/10 text-green-600 text-sm">
+                    <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                    {healthCounts.healthy} online
+                  </div>
+                  {healthCounts.degraded > 0 && (
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-yellow-500/10 text-yellow-600 text-sm">
+                      <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
+                      {healthCounts.degraded} degraded
+                    </div>
+                  )}
+                  {healthCounts.offline > 0 && (
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-500/10 text-red-600 text-sm">
+                      <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                      {healthCounts.offline} offline
+                    </div>
+                  )}
+                </div>
+              </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Active Agents */}
-              <div className="lg:col-span-2">
-                <Card className="p-6 md:p-7">
-                  <h2 className="text-xl font-semibold mb-4">Active Agents</h2>
-                  {loading ? (
-                    <p className="text-muted-foreground">Loading agents...</p>
-                  ) : (
-                    <div className="space-y-3">
-                      {activeAgents.map((agent) => (
-                        <Link
-                          key={agent.id}
-                          href={`/conversation/${agent.id}`}
-                          className="block p-3 rounded-lg border border-border hover:bg-muted transition-colors"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <h3 className="font-medium">{agent.name}</h3>
-                              <p className="text-sm text-muted-foreground">{agent.description}</p>
-                            </div>
-                            <HealthStatus status={agentHealth[agent.id] || "healthy"} />
+              {/* Request Composer - Above agents */}
+              <Card className="p-4">
+                <RequestComposer
+                  agentId={selectedAgentId || agents[0]?.id}
+                  onAgentChange={setSelectedAgentId}
+                  onSend={handleQuickSend}
+                  disabled={loadingQuick}
+                />
+              </Card>
+
+              {/* Agents Grid */}
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold">Available Agents</h2>
+                  <Link href="/agents">
+                    <Button variant="ghost" size="sm">
+                      View All →
+                    </Button>
+                  </Link>
+                </div>
+                {loading ? (
+                  <p className="text-muted-foreground">Loading agents...</p>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {agents.slice(0, 9).map((agent) => (
+                      <Link key={agent.id} href={`/conversation/${agent.id}`}>
+                        <Card className="p-4 h-full hover:shadow-md hover:border-primary/50 transition-all cursor-pointer group">
+                          <div className="flex items-start justify-between mb-2">
+                            <h3 className="font-semibold text-sm group-hover:text-primary transition-colors">
+                              {agent.name}
+                            </h3>
+                            <HealthStatus status={agentHealth[agent.id] || "offline"} />
                           </div>
+                          <p className="text-xs text-muted-foreground line-clamp-2">
+                            {agent.description}
+                          </p>
+                        </Card>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Collapsible Recent Activity at Bottom */}
+              {recentHistory.length > 0 && (
+                <div className="border rounded-lg overflow-hidden bg-card">
+                  <button
+                    onClick={() => setShowRecentActivity(!showRecentActivity)}
+                    className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors border-b border-transparent"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-sm">Recent Activity</span>
+                      <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{recentHistory.length}</span>
+                    </div>
+                    {showRecentActivity ? (
+                      <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                    )}
+                  </button>
+                  {showRecentActivity && (
+                    <div className="border-t">
+                      {recentHistory.map((item, idx) => (
+                        <Link 
+                          key={idx} 
+                          href={`/conversation/${item.agentId}`}
+                          className="flex items-center gap-4 px-4 py-3 hover:bg-muted/50 transition-colors border-b last:border-b-0"
+                        >
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center text-primary text-sm font-semibold shrink-0">
+                            {item.agentName?.[0] || "A"}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium">{item.agentName}</span>
+                              <span className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                                {item.type === "user" ? "You" : "Response"}
+                              </span>
+                            </div>
+                            <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{item.content}</p>
+                          </div>
+                          <span className="text-xs text-muted-foreground shrink-0">
+                            {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
                         </Link>
                       ))}
                     </div>
                   )}
-                  <Link href="/agents">
-                    <Button variant="outline" className="w-full mt-4 bg-transparent">
-                      View All Agents
-                    </Button>
-                  </Link>
-                </Card>
-              </div>
-
-              {/* Aggregated Health */}
-              <div>
-                <Card className="p-6 md:p-7">
-                  <h2 className="text-xl font-semibold mb-4">System Health</h2>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Healthy</span>
-                      <span className="font-semibold text-green-600">
-                        {Object.values(agentHealth).filter((s) => s === "healthy").length}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Degraded</span>
-                      <span className="font-semibold text-yellow-600">
-                        {Object.values(agentHealth).filter((s) => s === "degraded").length}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Offline</span>
-                      <span className="font-semibold text-red-600">
-                        {Object.values(agentHealth).filter((s) => s === "offline").length}
-                      </span>
-                    </div>
-                  </div>
-                </Card>
-              </div>
-            </div>
-
-            {/* Recent History */}
-            {recentHistory.length > 0 && (
-              <Card className="p-6">
-                <h2 className="text-xl font-semibold mb-4">Recent Activity</h2>
-                <div className="space-y-3">
-                  {recentHistory.map((item, idx) => (
-                    <div key={idx} className="p-3 rounded-lg border border-border">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <p className="text-sm font-medium">{item.agentName}</p>
-                          <p className="text-sm text-muted-foreground line-clamp-2">{item.content}</p>
-                        </div>
-                        <span className="text-xs text-muted-foreground ml-2">
-                          {new Date(item.timestamp).toLocaleTimeString()}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
                 </div>
-              </Card>
-            )}
+              )}
+
+            </div>
           </div>
         </div>
       </div>

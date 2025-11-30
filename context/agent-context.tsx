@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react"
 import type { Agent } from "@/types"
 import { fetchAgentRegistry, checkAgentHealth } from "@/lib/api-service"
 import { useUser } from "./user-context"
@@ -84,7 +84,8 @@ export function AgentProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(interval)
   }, [agents, user])
 
-  const refreshHealth = async (agentId?: string) => {
+  // Memoize refreshHealth to prevent unnecessary re-renders and effect re-runs
+  const refreshHealth = useCallback(async (agentId?: string) => {
     if (!user) return // Can't refresh health without a user
 
     if (agentId) {
@@ -100,7 +101,7 @@ export function AgentProvider({ children }: { children: ReactNode }) {
       }
       setAgentHealth(healthMap)
     }
-  }
+  }, [user, agents])
 
   return (
     <AgentContext.Provider value={{ agents, loading, error, agentHealth, refreshHealth }}>

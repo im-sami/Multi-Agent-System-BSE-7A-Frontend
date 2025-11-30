@@ -2,7 +2,7 @@
 
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Header from "@/components/header";
 import { useAgents } from "@/context/agent-context";
 import ChatWindow from "@/components/chat-window";
@@ -20,7 +20,7 @@ import { formatResponseToChat } from "@/lib/response-formatter";
 export default function ConversationPage() {
   const params = useParams();
   const agentId = params.id as string;
-  const { agents, agentHealth } = useAgents();
+  const { agents, agentHealth, refreshHealth } = useAgents();
   const [selectedAlternative, setSelectedAlternative] = useState<string | null>(
     null
   );
@@ -29,10 +29,27 @@ export default function ConversationPage() {
   const isMobile = useIsMobile();
   const { addMessage } = useHistory();
   const [loading, setLoading] = useState(false);
+  const [healthChecked, setHealthChecked] = useState(false);
 
   const agent = agents.find((a) => a.id === agentId);
   const health = agentHealth[agentId];
-  const isOffline = health === "offline";
+  
+  // Only consider offline if we've explicitly checked and it's confirmed offline
+  // undefined means health hasn't been checked yet, so don't show offline warning
+  const isOffline = healthChecked && health === "offline";
+  
+  // Refresh health when the page loads and when agentId changes
+  useEffect(() => {
+    const checkHealth = async () => {
+      setHealthChecked(false);
+      await refreshHealth(agentId);
+      setHealthChecked(true);
+    };
+    
+    if (agentId && agents.length > 0) {
+      checkHealth();
+    }
+  }, [agentId, agents.length, refreshHealth]);
 
   if (!agent) {
     return (

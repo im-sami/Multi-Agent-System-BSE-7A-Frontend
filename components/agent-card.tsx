@@ -2,7 +2,6 @@
 
 import type { Agent } from "@/types"
 import HealthStatus from "./health-status"
-import { Clock } from "lucide-react"
 
 interface AgentCardProps {
   agent: Agent

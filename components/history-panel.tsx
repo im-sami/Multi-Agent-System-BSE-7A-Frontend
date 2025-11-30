@@ -126,7 +126,7 @@ export default function HistoryPanel({ agentId, onClose, onClear }: HistoryPanel
               <p className="text-muted-foreground line-clamp-2">
                 {typeof msg.content === "string" ? msg.content : msg.content.summary || JSON.stringify(msg.content)}
               </p>
-              <p className="text-xs text-muted-foreground/60">{new Date(msg.timestamp).toLocaleTimeString()}</p>
+              <p className="text-xs text-muted-foreground/60">{new Date(msg.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</p>
             </div>
           ))
         )}

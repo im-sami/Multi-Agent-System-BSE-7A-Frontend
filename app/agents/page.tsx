@@ -12,14 +12,10 @@ import { Card } from "@/components/ui/card"
 export default function AgentDirectoryPage() {
   const { agents, loading, agentHealth } = useAgents()
   const [searchQuery, setSearchQuery] = useState("")
-  const [selectedCapability, setSelectedCapability] = useState<string | null>(null)
 
   const filteredAgents = agents.filter((agent) => {
-    const matchesSearch =
-      agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    return agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (agent.description || "").toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesCapability = !selectedCapability || agent.capabilities?.includes(selectedCapability)
-    return matchesSearch && matchesCapability
   })
 
   // Sort agents: online first, then offline
@@ -30,8 +26,6 @@ export default function AgentDirectoryPage() {
     if (aHealth !== "healthy" && bHealth === "healthy") return 1
     return 0
   })
-
-  const allCapabilities = Array.from(new Set(agents.flatMap((agent) => agent.capabilities || [])))
 
   return (
     <div className="flex h-screen bg-background text-foreground">
@@ -50,35 +44,14 @@ export default function AgentDirectoryPage() {
               </Link>
             </div>
 
-            {/* Search and Filters */}
+            {/* Search */}
             <Card className="p-6">
-              <div className="space-y-4">
-                <Input
-                  placeholder="Search agents..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full"
-                />
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant={selectedCapability === null ? "default" : "outline"}
-                    onClick={() => setSelectedCapability(null)}
-                    size="sm"
-                  >
-                    All
-                  </Button>
-                  {allCapabilities.map((capability) => (
-                    <Button
-                      key={capability}
-                      variant={selectedCapability === capability ? "default" : "outline"}
-                      onClick={() => setSelectedCapability(capability)}
-                      size="sm"
-                    >
-                      {capability}
-                    </Button>
-                  ))}
-                </div>
-              </div>
+              <Input
+                placeholder="Search agents..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full"
+              />
             </Card>
 
             {/* Agent Grid */}
