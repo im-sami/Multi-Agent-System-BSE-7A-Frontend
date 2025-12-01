@@ -9,12 +9,23 @@ import {
 } from "react";
 import { useUser } from "./user-context";
 
-import { type Message } from "@/types";
+import { type Message, type RequestPayload } from "@/types";
+
+interface PendingClarification {
+  agentId: string;
+  questions: string[];
+  payload: RequestPayload;
+}
 
 interface HistoryContextType {
   getHistory: (agentId: string) => Message[];
   addMessage: (agentId: string, message: Message) => void;
+  removeMessage: (agentId: string, messageId: string) => void;
+  removeLoadingMessage: (agentId: string) => void;
+  replaceLoadingMessage: (agentId: string, message: Message) => void;
   clearHistory: (agentId: string) => void;
+  pendingClarification: PendingClarification | null;
+  setPendingClarification: (clarification: PendingClarification | null) => void;
 }
 
 const HistoryContext = createContext<HistoryContextType | undefined>(undefined);
@@ -23,6 +34,7 @@ const EMPTY_HISTORY: Message[] = [];
 
 export function HistoryProvider({ children }: { children: ReactNode }) {
   const [history, setHistory] = useState<Record<string, Message[]>>({});
+  const [pendingClarification, setPendingClarification] = useState<PendingClarification | null>(null);
   const { user } = useUser();
 
   const getHistoryKey = () => (user ? `agent-history-${user.id}` : null);
@@ -70,7 +82,12 @@ export function HistoryProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const historyKey = getHistoryKey();
     if (historyKey) {
-      localStorage.setItem(historyKey, JSON.stringify(history));
+      // Don't save loading messages to localStorage
+      const historyToSave: Record<string, Message[]> = {};
+      for (const [agentId, messages] of Object.entries(history)) {
+        historyToSave[agentId] = messages.filter(m => m.type !== 'loading');
+      }
+      localStorage.setItem(historyKey, JSON.stringify(historyToSave));
     }
   }, [history, user]);
 
@@ -83,6 +100,34 @@ export function HistoryProvider({ children }: { children: ReactNode }) {
     }));
   };
 
+  const removeMessage = (agentId: string, messageId: string) => {
+    setHistory((prev) => ({
+      ...prev,
+      [agentId]: (prev[agentId] || []).filter(m => m.id !== messageId),
+    }));
+  };
+
+  const removeLoadingMessage = (agentId: string) => {
+    setHistory((prev) => ({
+      ...prev,
+      [agentId]: (prev[agentId] || []).filter(m => m.type !== 'loading'),
+    }));
+  };
+
+  const replaceLoadingMessage = (agentId: string, message: Message) => {
+    setHistory((prev) => {
+      const messages = prev[agentId] || [];
+      // Find and replace the loading message, or add if not found
+      const loadingIndex = messages.findIndex(m => m.type === 'loading');
+      if (loadingIndex >= 0) {
+        const newMessages = [...messages];
+        newMessages[loadingIndex] = message;
+        return { ...prev, [agentId]: newMessages };
+      }
+      return { ...prev, [agentId]: [...messages, message] };
+    });
+  };
+
   const clearHistory = (agentId: string) => {
     setHistory((prev) => ({
       ...prev,
@@ -91,7 +136,7 @@ export function HistoryProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <HistoryContext.Provider value={{ getHistory, addMessage, clearHistory }}>
+    <HistoryContext.Provider value={{ getHistory, addMessage, removeMessage, removeLoadingMessage, replaceLoadingMessage, clearHistory, pendingClarification, setPendingClarification }}>
       {children}
     </HistoryContext.Provider>
   );

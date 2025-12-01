@@ -16,6 +16,7 @@ import { submitSupervisorRequest } from "@/lib/api-service";
 import { useHistory } from "@/context/history-context";
 import { type RequestPayload } from "@/types";
 import { formatResponseToChat } from "@/lib/response-formatter";
+import ClarificationModal from "@/components/clarification-modal";
 
 export default function ConversationPage() {
   const params = useParams();
@@ -27,16 +28,21 @@ export default function ConversationPage() {
   const [showHistory, setShowHistory] = useState(false);
   const [showDetailPanel, setShowDetailPanel] = useState(false);
   const isMobile = useIsMobile();
-  const { addMessage } = useHistory();
+  const { addMessage, replaceLoadingMessage, removeMessage, getHistory, pendingClarification, setPendingClarification } = useHistory();
   const [loading, setLoading] = useState(false);
   const [healthChecked, setHealthChecked] = useState(false);
+  const [showClarification, setShowClarification] = useState(false);
+  const [clarifyingQuestions, setClarifyingQuestions] = useState<string[]>([]);
+  const [pendingPayload, setPendingPayload] = useState<RequestPayload | null>(null);
 
   const agent = agents.find((a) => a.id === agentId);
   const health = agentHealth[agentId];
+  const currentHistory = getHistory(agentId);
+  const hasActiveConversation = currentHistory.length > 0;
   
-  // Only consider offline if we've explicitly checked and it's confirmed offline
-  // undefined means health hasn't been checked yet, so don't show offline warning
-  const isOffline = healthChecked && health === "offline";
+  // Only consider offline if we've explicitly checked, it's confirmed offline,
+  // AND there's no active conversation (don't interrupt an ongoing conversation)
+  const isOffline = healthChecked && health === "offline" && !hasActiveConversation && !loading;
   
   // Refresh health when the page loads and when agentId changes
   useEffect(() => {
@@ -50,6 +56,17 @@ export default function ConversationPage() {
       checkHealth();
     }
   }, [agentId, agents.length, refreshHealth]);
+
+  // Watch for pending clarification from background processing
+  useEffect(() => {
+    if (pendingClarification && pendingClarification.agentId === agentId) {
+      setClarifyingQuestions(pendingClarification.questions);
+      setPendingPayload(pendingClarification.payload);
+      setShowClarification(true);
+      // Clear the pending clarification so it doesn't trigger again
+      setPendingClarification(null);
+    }
+  }, [pendingClarification, agentId, setPendingClarification]);
 
   if (!agent) {
     return (
@@ -126,9 +143,45 @@ export default function ConversationPage() {
     };
     addMessage(displayAgentId, userMessage);
 
+    // Add loading indicator immediately
+    const loadingMessage = {
+      type: "loading" as const,
+      content: "",
+      timestamp: new Date().toISOString(),
+      id: "loading-" + Date.now(),
+    };
+    addMessage(displayAgentId, loadingMessage);
+
     setLoading(true);
     try {
       const response = await submitSupervisorRequest(payload);
+      
+      // Debug logging
+      console.log("Supervisor response:", JSON.stringify(response, null, 2));
+
+      // Check if clarification is needed - check multiple possible fields
+      const needsClarification = 
+        response.status === "clarification_needed" ||
+        (response as any).needs_clarification === true ||
+        (response as any).is_ambiguous === true;
+      
+      // Get clarifying questions from various possible locations
+      const questions = 
+        response.clarifying_questions || 
+        (response as any).clarifying_questions ||
+        (response.intent_info as any)?.clarifying_questions ||
+        [];
+
+      if (needsClarification && questions.length > 0) {
+        console.log("Showing clarification modal with questions:", questions);
+        // Remove the loading message and show clarification modal
+        removeMessage(displayAgentId, loadingMessage.id!);
+        setClarifyingQuestions(questions);
+        setPendingPayload(payload);
+        setShowClarification(true);
+        setLoading(false);
+        return;
+      }
 
       // Detect context for better formatting
       let context = "general";
@@ -158,7 +211,8 @@ export default function ConversationPage() {
         timestamp: response.timestamp,
         metadata: response.metadata,
       };
-      addMessage(displayAgentId, agentResponse);
+      // Replace loading message with actual response
+      replaceLoadingMessage(displayAgentId, agentResponse);
     } catch (error) {
       // Format error messages into natural language as well
       const errorContent = await formatResponseToChat(
@@ -171,10 +225,33 @@ export default function ConversationPage() {
         content: errorContent,
         timestamp: new Date().toISOString(),
       };
-      addMessage(displayAgentId, errorMessage);
+      // Replace loading message with error
+      replaceLoadingMessage(displayAgentId, errorMessage);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleClarificationSubmit = async (answer: string) => {
+    if (!pendingPayload) return;
+    setShowClarification(false);
+    setClarifyingQuestions([]);
+    
+    // Create a new payload with the clarification answer appended
+    const clarifiedPayload = {
+      ...pendingPayload,
+      request: `${pendingPayload.request}\n\nAdditional info: ${answer}`,
+    };
+    
+    // Send the clarified request
+    await handleSendRequest(clarifiedPayload);
+    setPendingPayload(null);
+  };
+
+  const handleClarificationCancel = () => {
+    setShowClarification(false);
+    setClarifyingQuestions([]);
+    setPendingPayload(null);
   };
 
   const renderChatWindow = () => (
@@ -210,6 +287,12 @@ export default function ConversationPage() {
             </SheetContent>
           </Sheet>
         </div>
+        <ClarificationModal
+          open={showClarification}
+          questions={clarifyingQuestions}
+          onCancel={handleClarificationCancel}
+          onSubmit={handleClarificationSubmit}
+        />
       </div>
     );
   }
@@ -227,6 +310,12 @@ export default function ConversationPage() {
           <HistoryPanel agentId={displayAgentId} />
         </div>
       )}
+      <ClarificationModal
+        open={showClarification}
+        questions={clarifyingQuestions}
+        onCancel={handleClarificationCancel}
+        onSubmit={handleClarificationSubmit}
+      />
     </div>
   );
 }

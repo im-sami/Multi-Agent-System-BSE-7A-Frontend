@@ -1,6 +1,7 @@
 import { type Message, type AssessmentResponse } from "@/types";
-import { Bot, User, AlertTriangle } from "lucide-react";
+import { Bot, User, AlertTriangle, Clock } from "lucide-react";
 import AssessmentPreview from "@/components/agents/assessment-preview";
+import TypingIndicator from "@/components/typing-indicator";
 
 interface ChatMessageProps {
   message: Message & { metadata?: any };
@@ -69,65 +70,114 @@ function formatExecutionTime(ms: number): string {
 
 /**
  * Simple markdown renderer for chat messages
- * Handles: **bold**, *italic*, `code`, bullet points, headers, links, horizontal rules
+ * Handles: **bold**, *italic*, `code`, ```code blocks```, bullet points, headers, links, horizontal rules
  */
 function renderMarkdown(text: string): JSX.Element {
-  const lines = text.split('\n');
   const elements: JSX.Element[] = [];
+  let keyIdx = 0;
   
-  lines.forEach((line, lineIdx) => {
-    // Horizontal rule
-    if (line.match(/^---+$/)) {
-      elements.push(<hr key={lineIdx} className="my-2 border-current opacity-20" />);
-      return;
+  // First, handle fenced code blocks (```code```)
+  const codeBlockRegex = /```(\w*)\n?([\s\S]*?)```/g;
+  const parts: { type: 'text' | 'code'; content: string; language?: string }[] = [];
+  let lastIndex = 0;
+  let match;
+  
+  while ((match = codeBlockRegex.exec(text)) !== null) {
+    // Add text before the code block
+    if (match.index > lastIndex) {
+      parts.push({ type: 'text', content: text.slice(lastIndex, match.index) });
     }
-    
-    // Headers
-    if (line.startsWith('### ')) {
-      elements.push(<h3 key={lineIdx} className="font-semibold text-sm mt-2 mb-1">{renderInlineMarkdown(line.slice(4))}</h3>);
-      return;
-    }
-    if (line.startsWith('## ')) {
-      elements.push(<h2 key={lineIdx} className="font-semibold text-base mt-3 mb-1">{renderInlineMarkdown(line.slice(3))}</h2>);
-      return;
-    }
-    if (line.startsWith('# ')) {
-      elements.push(<h1 key={lineIdx} className="font-bold text-lg mt-3 mb-2">{renderInlineMarkdown(line.slice(2))}</h1>);
-      return;
-    }
-    
-    // Bullet points
-    if (line.match(/^[\s]*[•\-\*]\s/)) {
-      const content = line.replace(/^[\s]*[•\-\*]\s/, '');
+    // Add the code block
+    parts.push({ type: 'code', content: match[2].trim(), language: match[1] || undefined });
+    lastIndex = match.index + match[0].length;
+  }
+  
+  // Add remaining text after the last code block
+  if (lastIndex < text.length) {
+    parts.push({ type: 'text', content: text.slice(lastIndex) });
+  }
+  
+  // If no code blocks found, treat entire text as regular text
+  if (parts.length === 0) {
+    parts.push({ type: 'text', content: text });
+  }
+  
+  parts.forEach((part, partIdx) => {
+    if (part.type === 'code') {
+      // Render code block with syntax highlighting styling
       elements.push(
-        <div key={lineIdx} className="flex items-start gap-2 ml-2">
-          <span className="text-current opacity-60">•</span>
-          <span>{renderInlineMarkdown(content)}</span>
+        <div key={`codeblock-${partIdx}`} className="my-3 rounded-lg overflow-hidden">
+          {part.language && (
+            <div className="bg-black/40 px-3 py-1 text-xs text-muted-foreground font-mono border-b border-white/10">
+              {part.language}
+            </div>
+          )}
+          <pre className="bg-black/30 p-3 overflow-x-auto">
+            <code className="text-xs font-mono whitespace-pre text-green-300/90">{part.content}</code>
+          </pre>
         </div>
       );
-      return;
+    } else {
+      // Render regular text with line-by-line processing
+      const lines = part.content.split('\n');
+      
+      lines.forEach((line, lineIdx) => {
+        const lineKey = `${partIdx}-${lineIdx}`;
+        
+        // Horizontal rule
+        if (line.match(/^---+$/)) {
+          elements.push(<hr key={lineKey} className="my-2 border-current opacity-20" />);
+          return;
+        }
+        
+        // Headers
+        if (line.startsWith('### ')) {
+          elements.push(<h3 key={lineKey} className="font-semibold text-sm mt-2 mb-1">{renderInlineMarkdown(line.slice(4))}</h3>);
+          return;
+        }
+        if (line.startsWith('## ')) {
+          elements.push(<h2 key={lineKey} className="font-semibold text-base mt-3 mb-1">{renderInlineMarkdown(line.slice(3))}</h2>);
+          return;
+        }
+        if (line.startsWith('# ')) {
+          elements.push(<h1 key={lineKey} className="font-bold text-lg mt-3 mb-2">{renderInlineMarkdown(line.slice(2))}</h1>);
+          return;
+        }
+        
+        // Bullet points
+        if (line.match(/^[\s]*[•\-\*]\s/)) {
+          const content = line.replace(/^[\s]*[•\-\*]\s/, '');
+          elements.push(
+            <div key={lineKey} className="flex items-start gap-2 ml-2">
+              <span className="text-current opacity-60">•</span>
+              <span>{renderInlineMarkdown(content)}</span>
+            </div>
+          );
+          return;
+        }
+        
+        // Numbered lists
+        const numberedMatch = line.match(/^(\d+)\.\s(.+)/);
+        if (numberedMatch) {
+          elements.push(
+            <div key={lineKey} className="flex items-start gap-2 ml-2">
+              <span className="text-current opacity-60 min-w-[1.2em]">{numberedMatch[1]}.</span>
+              <span>{renderInlineMarkdown(numberedMatch[2])}</span>
+            </div>
+          );
+          return;
+        }
+        
+        // Empty lines
+        if (line.trim() === '') {
+          elements.push(<div key={lineKey} className="h-2" />);
+          return;
+        }
+        
+        // Regular paragraph with inline formatting
+        elements.push(<p key={lineKey} className="text-sm">{renderInlineMarkdown(line)}</p>);
+      });
     }
-    
-    // Numbered lists
-    const numberedMatch = line.match(/^(\d+)\.\s(.+)/);
-    if (numberedMatch) {
-      elements.push(
-        <div key={lineIdx} className="flex items-start gap-2 ml-2">
-          <span className="text-current opacity-60 min-w-[1.2em]">{numberedMatch[1]}.</span>
-          <span>{renderInlineMarkdown(numberedMatch[2])}</span>
-        </div>
-      );
-      return;
-    }
-    
-    // Empty lines
-    if (line.trim() === '') {
-      elements.push(<div key={lineIdx} className="h-2" />);
-      return;
-    }
-    
-    // Regular paragraph with inline formatting
-    elements.push(<p key={lineIdx} className="text-sm">{renderInlineMarkdown(line)}</p>);
   });
   
   return <div className="space-y-0.5">{elements}</div>;
@@ -164,7 +214,7 @@ function renderInlineMarkdown(text: string): (string | JSX.Element)[] {
     const codeMatch = remaining.match(/^(.*?)`([^`]+)`/);
     if (codeMatch) {
       if (codeMatch[1]) result.push(codeMatch[1]);
-      result.push(<code key={`c${keyIdx++}`} className="bg-black/20 px-1 py-0.5 rounded text-xs font-mono">{codeMatch[2]}</code>);
+      result.push(<code key={`c${keyIdx++}`} className="bg-black/30 px-1.5 py-0.5 rounded text-xs font-mono text-green-300/90 border border-white/10">{codeMatch[2]}</code>);
       remaining = remaining.slice(codeMatch[0].length);
       continue;
     }
@@ -193,6 +243,12 @@ function renderInlineMarkdown(text: string): (string | JSX.Element)[] {
 export default function ChatMessage({ message }: ChatMessageProps) {
   const isUser = message.type === "user";
   const isError = message.type === "error";
+  const isLoading = message.type === "loading";
+
+  // Show typing indicator for loading messages
+  if (isLoading) {
+    return <TypingIndicator />;
+  }
 
   // Check if this is an assessment response
   let isAssessment = false;
@@ -222,14 +278,23 @@ export default function ChatMessage({ message }: ChatMessageProps) {
             assessment={assessmentData}
             pdfPath={message.metadata?.pdf_path}
           />
-          {message.metadata && message.metadata.executionTime && (
-            <div className="mt-2 p-3 rounded-lg bg-muted/30 text-xs text-muted-foreground flex items-center gap-4">
-              <span>⏱️ {formatExecutionTime(message.metadata.executionTime)}</span>
-              {message.metadata.agentTrace &&
-                Array.isArray(message.metadata.agentTrace) && (
-                  <span>🔗 {message.metadata.agentTrace.join(" → ")}</span>
+          {(message.metadata?.executionTime || message.timestamp) && (
+            <div className="mt-2 px-3 py-2 rounded-lg bg-muted/30 text-xs text-muted-foreground flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                {message.metadata?.executionTime && (
+                  <span className="flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    <span>{formatExecutionTime(message.metadata.executionTime)}</span>
+                  </span>
                 )}
-              <span className="ml-auto">{formatTimestamp(message.timestamp)}</span>
+                {message.metadata?.agentTrace && Array.isArray(message.metadata.agentTrace) && message.metadata.agentTrace.length > 0 && (
+                  <span className="flex items-center gap-1">
+                    <span>•</span>
+                    <span>{message.metadata.agentTrace[message.metadata.agentTrace.length - 1]}</span>
+                  </span>
+                )}
+              </div>
+              <span>{formatTimestamp(message.timestamp)}</span>
             </div>
           )}
         </div>
@@ -281,19 +346,23 @@ export default function ChatMessage({ message }: ChatMessageProps) {
         }`}
       >
         {renderContent()}
-        {message.metadata && message.metadata.executionTime && (
-          <div className="mt-2 pt-2 border-t border-current/20 text-xs opacity-80">
-            <div className="flex items-center gap-3 flex-wrap">
-              <span>⏱️ {formatExecutionTime(message.metadata.executionTime)}</span>
-              {Array.isArray(message.metadata.agentTrace) && (
-                <span>🔗 {message.metadata.agentTrace.join(' → ')}</span>
-              )}
-            </div>
+        <div className="mt-2 pt-2 border-t border-current/10 text-xs opacity-70 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            {message.metadata && message.metadata.executionTime && (
+              <span className="flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                <span>{formatExecutionTime(message.metadata.executionTime)}</span>
+              </span>
+            )}
+            {message.metadata && Array.isArray(message.metadata.agentTrace) && message.metadata.agentTrace.length > 0 && (
+              <span className="flex items-center gap-1">
+                <span>•</span>
+                <span>{message.metadata.agentTrace[message.metadata.agentTrace.length - 1]}</span>
+              </span>
+            )}
           </div>
-        )}
-        <p className="text-xs opacity-70 mt-1 text-right">
-          {formatTimestamp(message.timestamp)}
-        </p>
+          <span>{formatTimestamp(message.timestamp)}</span>
+        </div>
       </div>
       {isUser && (
         <div className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center bg-primary/20 text-primary">

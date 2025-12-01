@@ -123,3 +123,32 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Custom scrollbar styles - must be outside @layer for specificity */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: #555 #1a1a1a;
+}
+
+*::-webkit-scrollbar {
+  width: 10px !important;
+  height: 10px !important;
+  background-color: #1a1a1a !important;
+}
+
+*::-webkit-scrollbar-track {
+  background: #1a1a1a !important;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #555 !important;
+  border-radius: 5px !important;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #777 !important;
+}
+
+*::-webkit-scrollbar-corner {
+  background: #1a1a1a !important;
+}

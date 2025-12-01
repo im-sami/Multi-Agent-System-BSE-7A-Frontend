@@ -8,7 +8,7 @@ import { useAgents } from "@/context/agent-context"
 import { useHistory } from "@/context/history-context"
 import RequestComposer from "@/components/request-composer"
 import ClarificationModal from "@/components/clarification-modal"
-import { submitSupervisorRequest } from "@/lib/api-service"
+import { submitSupervisorRequest, identifyIntent } from "@/lib/api-service"
 import HealthStatus from "@/components/health-status"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -23,151 +23,221 @@ export default function DashboardPage() {
   const [showClarification, setShowClarification] = useState(false)
   const [clarifyingQuestions, setClarifyingQuestions] = useState<string[]>([])
   const [pendingPayload, setPendingPayload] = useState<any>(null)
-  const { addMessage } = useHistory()
+  const { addMessage, replaceLoadingMessage, removeLoadingMessage, setPendingClarification } = useHistory()
   const router = useRouter()
 
   const handleClarificationSubmit = async (answer: string) => {
     if (!pendingPayload) return
     setShowClarification(false)
-    setClarifyingQuestions([]) // Clear old questions immediately
+    setClarifyingQuestions([])
     setLoadingQuick(true)
+    
     try {
-      // send the clarified answer as a follow-up request; backend will use conversation history
-      const followUpPayload = { ...pendingPayload, request: answer, autoRoute: true }
-      const response = await submitSupervisorRequest(followUpPayload)
+      // Quick intent identification with clarified answer
+      const intentResult = await identifyIntent(answer)
 
-      // If still needs clarification, reopen modal with NEW questions only
-      if (response && response.status === "clarification_needed" && 
-          response.clarifying_questions && response.clarifying_questions.length > 0) {
-        setClarifyingQuestions(response.clarifying_questions)
-        setPendingPayload(followUpPayload)
+      // If still needs more clarification - check both is_ambiguous and status
+      const needsClarification = 
+        intentResult.is_ambiguous === true || 
+        intentResult.status === "clarification_needed"
+      
+      if (needsClarification && 
+          intentResult.clarifying_questions && intentResult.clarifying_questions.length > 0) {
+        setClarifyingQuestions(intentResult.clarifying_questions)
+        setPendingPayload({ ...pendingPayload, request: answer })
         setShowClarification(true)
         setLoadingQuick(false)
-        return // Don't clear pendingPayload, keep clarification loop going
+        return
       }
 
-      const chosenAgent = response?.metadata?.identified_agent || response?.agentId || selectedAgentId || agents[0]?.id
+      const chosenAgent = intentResult.agent_id || intentResult.identified_agent || selectedAgentId || agents[0]?.id
       if (!chosenAgent) {
-        addMessage("system", { type: "error", content: "No agent chosen by supervisor.", timestamp: new Date().toISOString() })
+        addMessage("system", { type: "error", content: "No agent identified.", timestamp: new Date().toISOString() })
         setLoadingQuick(false)
         setPendingPayload(null)
         return
       }
 
-      // Store user answer and agent response to conversation
+      // Add messages and navigate immediately
       addMessage(chosenAgent, { type: "user", content: answer, timestamp: new Date().toISOString() })
+      addMessage(chosenAgent, { type: "loading", content: "", timestamp: new Date().toISOString(), id: "loading-" + Date.now() })
       
-      // Detect context for better formatting
-      let context = "general";
-      const responseData = typeof response.response === "string" 
-        ? (() => { try { return JSON.parse(response.response); } catch { return null; } })()
-        : response.response;
-      if (responseData?.quiz_content || responseData?.questions) {
-        context = "quiz";
-      }
-      
-      // Format response to natural language
-      const formattedContent = await formatResponseToChat(response.response || "No response content.", context)
-      
-      addMessage(chosenAgent, { type: "agent", content: formattedContent, timestamp: response.timestamp || new Date().toISOString(), metadata: response.metadata })
-
       setLoadingQuick(false)
       setPendingPayload(null)
-      try { router.push(`/conversation/${chosenAgent}`) } catch (e) { /* noop */ }
+      router.push(`/conversation/${chosenAgent}`)
+      
+      // Process in background
+      submitSupervisorRequest({ ...pendingPayload, request: answer, agentId: chosenAgent })
+        .then(async (response) => {
+          // Check if clarification is needed
+          const needsClarification = 
+            response.status === "clarification_needed" ||
+            (response as any).needs_clarification === true ||
+            (response as any).is_ambiguous === true;
+          
+          const questions = 
+            response.clarifying_questions || 
+            (response as any).clarifying_questions ||
+            (response.intent_info as any)?.clarifying_questions ||
+            [];
+
+          if (needsClarification && questions.length > 0) {
+            // Remove loading message and set pending clarification for conversation page
+            removeLoadingMessage(chosenAgent);
+            setPendingClarification({
+              agentId: chosenAgent,
+              questions: questions,
+              payload: { ...pendingPayload, request: answer, agentId: chosenAgent },
+            });
+            return;
+          }
+
+          let context = "general";
+          const responseData = typeof response.response === "string" 
+            ? (() => { try { return JSON.parse(response.response); } catch { return null; } })()
+            : response.response;
+          if (responseData?.quiz_content || responseData?.questions) context = "quiz";
+          
+          const formattedContent = await formatResponseToChat(response.response || "No response.", context)
+          replaceLoadingMessage(chosenAgent, { type: "agent", content: formattedContent, timestamp: response.timestamp || new Date().toISOString(), metadata: response.metadata })
+        })
+        .catch(async (err) => {
+          const errorContent = await formatResponseToChat({ error: err instanceof Error ? err.message : "Error" }, "error")
+          replaceLoadingMessage(chosenAgent, { type: "error", content: errorContent, timestamp: new Date().toISOString() })
+        })
+        
     } catch (err) {
-      const errorContent = await formatResponseToChat(
-        err instanceof Error ? { error: err.message } : { error: "Unknown error" },
-        "error"
-      )
+      const errorContent = err instanceof Error ? err.message : "Unknown error"
       addMessage("system", { type: "error", content: errorContent, timestamp: new Date().toISOString() })
       setLoadingQuick(false)
       setPendingPayload(null)
-      setClarifyingQuestions([]) // Clear questions on error
+      setClarifyingQuestions([])
     }
   }
 
   const handleQuickSend = async (payload: any) => {
-    // If autoRoute is enabled, let the supervisor decide the agent.
+    // If autoRoute is enabled, use two-phase approach: identify then process
     if (payload?.autoRoute) {
       setLoadingQuick(true)
-      setClarifyingQuestions([]) // Clear any stale questions
-      setShowClarification(false) // Close modal if open
+      setClarifyingQuestions([])
+      setShowClarification(false)
+      
       try {
-        // Send payload as-is (RequestComposer will set agentId to empty string when autoRoute)
-        const response = await submitSupervisorRequest(payload)
-
-        // If supervisor requests clarification, open clarification modal only with valid questions
-        if (response && response.status === "clarification_needed" &&
-            response.clarifying_questions && response.clarifying_questions.length > 0) {
-          setClarifyingQuestions(response.clarifying_questions)
+        // Phase 1: Quick intent identification (fast - just identifies agent)
+        const intentResult = await identifyIntent(payload.request)
+        
+        // If needs clarification, show modal - check both is_ambiguous and status
+        const needsClarification = 
+          intentResult.is_ambiguous === true || 
+          intentResult.status === "clarification_needed"
+        
+        if (needsClarification && 
+            intentResult.clarifying_questions && intentResult.clarifying_questions.length > 0) {
+          setClarifyingQuestions(intentResult.clarifying_questions)
           setPendingPayload(payload)
           setShowClarification(true)
           setLoadingQuick(false)
           return
         }
 
-        // Otherwise, use identified agent (from metadata) or fallback to response.agentId
-        const chosenAgent = response?.metadata?.identified_agent || response?.agentId || selectedAgentId || agents[0]?.id
+        // Get the identified agent
+        const chosenAgent = intentResult.agent_id || intentResult.identified_agent || selectedAgentId || agents[0]?.id
         if (!chosenAgent) {
-          const errorMessage = {
-            type: "error" as const,
-            content: "No agent chosen by supervisor.",
-            timestamp: new Date().toISOString(),
-          }
-          addMessage("system", errorMessage)
+          addMessage("system", { 
+            type: "error", 
+            content: "Could not identify an appropriate agent for your request.", 
+            timestamp: new Date().toISOString() 
+          })
+          setLoadingQuick(false)
           return
         }
 
-        const userMessage = {
-          type: "user" as const,
+        // Add user message
+        addMessage(chosenAgent, {
+          type: "user",
           content: payload.request,
           timestamp: new Date().toISOString(),
-        }
-
-        // Add the user message and assistant response to the chosen agent conversation
-        addMessage(chosenAgent, userMessage)
+        })
         
-        // Detect context for better formatting
-        let context = "general";
-        const responseData = typeof response.response === "string" 
-          ? (() => { try { return JSON.parse(response.response); } catch { return null; } })()
-          : response.response;
-        if (responseData?.quiz_content || responseData?.questions) {
-          context = "quiz";
-        }
-        
-        // Format response to natural language
-        const formattedContent = await formatResponseToChat(response.response || "No response content.", context)
-        
-        const agentResponse = {
-          type: "agent" as const,
-          content: formattedContent,
-          timestamp: response.timestamp || new Date().toISOString(),
-          metadata: response.metadata,
-        }
-        addMessage(chosenAgent, agentResponse)
-
-        try {
-          router.push(`/conversation/${chosenAgent}`)
-        } catch (navErr) {
-          console.error("Failed to navigate to conversation:", navErr)
-        }
-      } catch (err) {
-        const errorContent = await formatResponseToChat(
-          err instanceof Error ? { error: err.message } : { error: "An unknown error occurred." },
-          "error"
-        )
-        const errorMessage = {
-          type: "error" as const,
-          content: errorContent,
+        // Add loading indicator
+        addMessage(chosenAgent, {
+          type: "loading",
+          content: "",
           timestamp: new Date().toISOString(),
-        }
-        addMessage("system", errorMessage)
-        // Clear clarification state on error
+          id: "loading-" + Date.now(),
+        })
+        
+        // Navigate immediately - user sees their message + typing indicator
+        setLoadingQuick(false)
+        router.push(`/conversation/${chosenAgent}`)
+        
+        // Phase 2: Full request processing (happens in background after navigation)
+        submitSupervisorRequest({ ...payload, agentId: chosenAgent })
+          .then(async (response) => {
+            // Check if clarification is needed
+            const needsClarification = 
+              response.status === "clarification_needed" ||
+              (response as any).needs_clarification === true ||
+              (response as any).is_ambiguous === true;
+            
+            const questions = 
+              response.clarifying_questions || 
+              (response as any).clarifying_questions ||
+              (response.intent_info as any)?.clarifying_questions ||
+              [];
+
+            if (needsClarification && questions.length > 0) {
+              // Remove loading message and set pending clarification for conversation page
+              removeLoadingMessage(chosenAgent);
+              // Set pending clarification so conversation page shows modal
+              setPendingClarification({
+                agentId: chosenAgent,
+                questions: questions,
+                payload: { ...payload, agentId: chosenAgent },
+              });
+              return;
+            }
+
+            let context = "general";
+            const responseData = typeof response.response === "string" 
+              ? (() => { try { return JSON.parse(response.response); } catch { return null; } })()
+              : response.response;
+            if (responseData?.quiz_content || responseData?.questions) {
+              context = "quiz";
+            }
+            
+            const formattedContent = await formatResponseToChat(response.response || "No response content.", context)
+            
+            replaceLoadingMessage(chosenAgent, {
+              type: "agent",
+              content: formattedContent,
+              timestamp: response.timestamp || new Date().toISOString(),
+              metadata: response.metadata,
+            })
+          })
+          .catch(async (err) => {
+            const errorContent = await formatResponseToChat(
+              { error: err instanceof Error ? err.message : "Request failed" },
+              "error"
+            )
+            replaceLoadingMessage(chosenAgent, {
+              type: "error",
+              content: errorContent,
+              timestamp: new Date().toISOString(),
+            })
+          })
+
+      } catch (err) {
+        // Intent identification failed
+        const errorContent = err instanceof Error ? err.message : "Failed to process request"
+        addMessage("system", { 
+          type: "error", 
+          content: errorContent, 
+          timestamp: new Date().toISOString() 
+        })
         setShowClarification(false)
         setClarifyingQuestions([])
         setPendingPayload(null)
-      } finally {
         setLoadingQuick(false)
       }
 

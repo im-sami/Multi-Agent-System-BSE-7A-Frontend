@@ -95,13 +95,52 @@ export async function fetchAgentRegistry(): Promise<Agent[]> {
   return data.agents
 }
 
+// Fast intent identification - just identifies the agent, doesn't process
+export interface IntentResult {
+  status?: string;
+  agent_id?: string;
+  identified_agent?: string;
+  clarifying_questions?: string[];
+  confidence?: number;
+  is_ambiguous?: boolean;
+  reasoning?: string;
+}
+
+export async function identifyIntent(query: string): Promise<IntentResult> {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 15000) // 15s timeout
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/supervisor/identify-intent`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ query }),
+      signal: controller.signal,
+    })
+    clearTimeout(timeoutId)
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.detail || "Failed to identify intent")
+    }
+
+    return response.json()
+  } catch (error) {
+    clearTimeout(timeoutId)
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Intent identification timed out')
+    }
+    throw error
+  }
+}
+
 export async function submitSupervisorRequest(
   payload: RequestPayload,
 ): Promise<RequestResponse> {
   // Use AbortController with a longer timeout for LLM-based requests
-  // which can take 30-90 seconds for complex generation tasks
+  // which can take 60-120 seconds for complex tasks like plagiarism checking
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 120000) // 120s timeout for LLM tasks
+  const timeoutId = setTimeout(() => controller.abort(), 180000) // 180s timeout for ML/LLM tasks
 
   try {
     const response = await fetch(`${API_BASE_URL}/api/supervisor/request`, {

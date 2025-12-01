@@ -187,3 +187,33 @@
     letter-spacing: -0.02em;
   }
 }
+
+/* Custom scrollbar styles */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #3d4a5c #0e1628;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+  background-color: #0e1628;
+}
+
+*::-webkit-scrollbar-track {
+  background: #0e1628;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #3d4a5c;
+  border-radius: 5px;
+  border: 2px solid #0e1628;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #4d5a6c;
+}
+
+*::-webkit-scrollbar-corner {
+  background: #0e1628;
+}

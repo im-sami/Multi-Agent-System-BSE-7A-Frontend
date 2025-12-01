@@ -15,13 +15,14 @@ export interface Agent {
   status?: string;
 }
 
-export type MessageType = 'user' | 'agent' | 'error';
+export type MessageType = 'user' | 'agent' | 'error' | 'loading';
 
 export interface Message {
   type: MessageType;
   content: string;
   timestamp: string; // ISO
   metadata?: any;
+  id?: string; // Optional unique ID for removing specific messages
 }
 
 export interface RequestPayload {
